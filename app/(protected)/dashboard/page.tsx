@@ -16,7 +16,9 @@ export default async function DashboardPage() {
       id: true,
       originalFileName: true,
       status: true,
+      templateId: true,
       createdAt: true,
+      contact: { select: { firstName: true, lastName: true } },
     },
   })
 
@@ -33,12 +35,18 @@ export default async function DashboardPage() {
       </div>
 
       {cvs.length === 0 ? (
-        <div className="bg-white border border-dashed border-gray-300 rounded-xl p-12 text-center">
-          <p className="text-gray-500 text-sm">Aucun CV importé pour l&apos;instant.</p>
+        <div className="bg-white border border-dashed border-gray-300 rounded-xl p-16 text-center">
+          <p className="text-gray-500 text-sm font-medium">Aucun CV importé pour l&apos;instant.</p>
           <p className="text-gray-400 text-xs mt-1">Importez un CV PDF ou Word pour commencer.</p>
         </div>
       ) : (
-        <CvTable cvs={cvs.map((cv) => ({ ...cv, status: cv.status as CvStatus }))} />
+        <CvTable
+          cvs={cvs.map((cv) => ({
+            ...cv,
+            status: cv.status as CvStatus,
+            contact: cv.contact ?? null,
+          }))}
+        />
       )}
     </div>
   )

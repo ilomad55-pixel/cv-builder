@@ -10,7 +10,9 @@ interface CvRow {
   id: string
   originalFileName: string
   status: CvStatus
+  templateId: number | null
   createdAt: Date
+  contact?: { firstName: string; lastName: string } | null
 }
 
 function IconEye() {
@@ -38,22 +40,19 @@ function IconTrash() {
   )
 }
 
-function RenameInput({
-  initial,
-  onSave,
-  onCancel,
-}: {
-  initial: string
-  onSave: (name: string) => void
-  onCancel: () => void
-}) {
+function IconDownload() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.8} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  )
+}
+
+function RenameInput({ initial, onSave, onCancel }: { initial: string; onSave: (name: string) => void; onCancel: () => void }) {
   const [value, setValue] = useState(initial)
   const ref = useRef<HTMLInputElement>(null)
 
-  useEffect(() => {
-    ref.current?.focus()
-    ref.current?.select()
-  }, [])
+  useEffect(() => { ref.current?.focus(); ref.current?.select() }, [])
 
   const submit = () => {
     const trimmed = value.trim()
@@ -67,10 +66,7 @@ function RenameInput({
       value={value}
       onChange={(e) => setValue(e.target.value)}
       onBlur={submit}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") submit()
-        if (e.key === "Escape") onCancel()
-      }}
+      onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") onCancel() }}
       className="w-full px-2 py-0.5 text-sm border border-brand-400 rounded focus:outline-none focus:ring-2 focus:ring-brand-500"
     />
   )
@@ -80,6 +76,7 @@ export function CvTable({ cvs }: { cvs: CvRow[] }) {
   const router = useRouter()
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [downloadingId, setDownloadingId] = useState<string | null>(null)
 
   const handleRename = async (id: string, name: string) => {
     setRenamingId(null)
@@ -99,71 +96,120 @@ export function CvTable({ cvs }: { cvs: CvRow[] }) {
     router.refresh()
   }
 
+  const handleDownload = async (cv: CvRow) => {
+    setDownloadingId(cv.id)
+    const res = await fetch(`/api/cv/${cv.id}/generate`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templateId: cv.templateId ?? 1 }),
+    })
+    if (res.ok) {
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = res.headers.get("Content-Disposition")?.match(/filename="(.+)"/)?.[1] ?? "cv.docx"
+      a.click()
+      URL.revokeObjectURL(url)
+    }
+    setDownloadingId(null)
+  }
+
   return (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <table className="w-full text-sm">
         <thead className="bg-gray-50 border-b border-gray-200">
           <tr>
+            <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Candidat</th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Fichier</th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Statut</th>
             <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Date</th>
-            <th className="px-4 py-3 w-32" />
+            <th className="px-4 py-3 w-36" />
           </tr>
         </thead>
         <tbody className="divide-y divide-gray-100">
-          {cvs.map((cv) => (
-            <tr
-              key={cv.id}
-              className={`hover:bg-gray-50 transition-colors ${deletingId === cv.id ? "opacity-40" : ""}`}
-            >
-              <td className="px-4 py-3 font-medium text-gray-900 max-w-xs">
-                {renamingId === cv.id ? (
-                  <RenameInput
-                    initial={cv.originalFileName}
-                    onSave={(name) => handleRename(cv.id, name)}
-                    onCancel={() => setRenamingId(null)}
-                  />
-                ) : (
-                  <span className="truncate block" title={cv.originalFileName}>
-                    {cv.originalFileName}
-                  </span>
-                )}
-              </td>
-              <td className="px-4 py-3">
-                <StatusBadge status={cv.status} />
-              </td>
-              <td className="px-4 py-3 text-gray-500 whitespace-nowrap">
-                {new Date(cv.createdAt).toLocaleDateString("fr-FR")}
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex items-center justify-end gap-1">
-                  <Link
-                    href={`/cv/${cv.id}`}
-                    className="p-1.5 rounded text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
-                    title="Voir le CV"
-                  >
-                    <IconEye />
-                  </Link>
-                  <button
-                    onClick={() => setRenamingId(cv.id)}
-                    disabled={!!deletingId}
-                    className="p-1.5 rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                    title="Renommer"
-                  >
-                    <IconPencil />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(cv.id, cv.originalFileName)}
-                    disabled={deletingId === cv.id}
-                    className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-                    title="Supprimer"
-                  >
-                    <IconTrash />
-                  </button>
-                </div>
-              </td>
-            </tr>
-          ))}
+          {cvs.map((cv) => {
+            const candidateName = [cv.contact?.firstName, cv.contact?.lastName].filter(Boolean).join(" ")
+            const isGenerated = cv.status === "GENERATED"
+
+            return (
+              <tr
+                key={cv.id}
+                className={`hover:bg-gray-50 transition-colors ${deletingId === cv.id ? "opacity-40" : ""}`}
+              >
+                <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">
+                  {candidateName || <span className="text-gray-300 italic text-xs">Non parsé</span>}
+                </td>
+
+                <td className="px-4 py-3 text-gray-500 max-w-xs">
+                  {renamingId === cv.id ? (
+                    <RenameInput
+                      initial={cv.originalFileName}
+                      onSave={(name) => handleRename(cv.id, name)}
+                      onCancel={() => setRenamingId(null)}
+                    />
+                  ) : (
+                    <span className="truncate block text-xs" title={cv.originalFileName}>
+                      {cv.originalFileName}
+                    </span>
+                  )}
+                </td>
+
+                <td className="px-4 py-3">
+                  <StatusBadge status={cv.status} />
+                </td>
+
+                <td className="px-4 py-3 text-gray-500 whitespace-nowrap text-xs">
+                  {new Date(cv.createdAt).toLocaleDateString("fr-FR")}
+                </td>
+
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-1">
+                    {isGenerated && (
+                      <button
+                        onClick={() => handleDownload(cv)}
+                        disabled={downloadingId === cv.id}
+                        className="p-1.5 rounded text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors"
+                        title="Télécharger le .docx"
+                      >
+                        {downloadingId === cv.id ? (
+                          <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                          </svg>
+                        ) : (
+                          <IconDownload />
+                        )}
+                      </button>
+                    )}
+                    <Link
+                      href={`/cv/${cv.id}`}
+                      className="p-1.5 rounded text-gray-400 hover:text-brand-600 hover:bg-brand-50 transition-colors"
+                      title="Ouvrir"
+                    >
+                      <IconEye />
+                    </Link>
+                    <button
+                      onClick={() => setRenamingId(cv.id)}
+                      disabled={!!deletingId}
+                      className="p-1.5 rounded text-gray-400 hover:text-amber-600 hover:bg-amber-50 transition-colors"
+                      title="Renommer"
+                    >
+                      <IconPencil />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(cv.id, cv.originalFileName)}
+                      disabled={deletingId === cv.id}
+                      className="p-1.5 rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                      title="Supprimer"
+                    >
+                      <IconTrash />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
     </div>

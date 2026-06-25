@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { BrandingForm } from "@/components/settings/BrandingForm"
+import { PasswordForm } from "@/components/settings/PasswordForm"
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
@@ -21,6 +22,7 @@ export default async function SettingsPage() {
         <p className="text-sm text-gray-500 mt-0.5">Charte graphique appliquée à tous vos CVs générés</p>
       </div>
       <BrandingForm initial={company} />
+      <PasswordForm />
     </div>
   )
 }
