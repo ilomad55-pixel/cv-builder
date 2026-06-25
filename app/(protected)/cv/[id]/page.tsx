@@ -7,6 +7,7 @@ import { ParseButton } from "@/components/cv/ParseButton"
 import { AiParseButton } from "@/components/cv/AiParseButton"
 import { ContactCard } from "@/components/cv/ContactCard"
 import { ExperienceList } from "@/components/cv/ExperienceList"
+import { GenerateSection } from "@/components/cv/GenerateSection"
 import Link from "next/link"
 
 export default async function CvDetailPage({ params }: { params: { id: string } }) {
@@ -18,6 +19,7 @@ export default async function CvDetailPage({ params }: { params: { id: string } 
     include: {
       contact: true,
       experiences: { orderBy: { order: "asc" } },
+      company: { select: { primaryColor: true } },
     },
   })
 
@@ -130,14 +132,21 @@ export default async function CvDetailPage({ params }: { params: { id: string } 
         </div>
       )}
 
-      {/* Sprint 5 — Génération Word (placeholder) */}
-      <div className="bg-white rounded-xl border border-dashed border-gray-200 p-5 opacity-50">
-        <p className="text-sm font-semibold text-gray-500 mb-1">Génération Word — Sprint 5</p>
-        <p className="text-xs text-gray-400">
-          Sélection du template + injection charte graphique → téléchargement .docx ATS-compatible.
-          {!isParsed && " Disponible après le parsing IA."}
-        </p>
-      </div>
+      {/* Génération Word */}
+      {isParsed ? (
+        <div className="mb-4">
+          <GenerateSection
+            cvId={cv.id}
+            primaryColor={cv.company.primaryColor}
+            currentTemplateId={cv.templateId}
+          />
+        </div>
+      ) : (
+        <div className="bg-white rounded-xl border border-dashed border-gray-200 p-5 opacity-50">
+          <p className="text-sm font-semibold text-gray-500 mb-1">Génération Word</p>
+          <p className="text-xs text-gray-400">Disponible après le parsing IA.</p>
+        </div>
+      )}
     </div>
   )
 }
