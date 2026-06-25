@@ -18,6 +18,7 @@ RUN npm run build
 # 3. Stage migration — node_modules complets, pas d'app
 FROM base AS migrate
 WORKDIR /app
+RUN apk add --no-cache openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY prisma ./prisma
 CMD ["node_modules/.bin/prisma", "db", "push", "--skip-generate"]
@@ -27,6 +28,7 @@ FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 
+RUN apk add --no-cache openssl
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -34,6 +36,10 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/prisma ./prisma
+
+# Moteur de requêtes Prisma (binaire généré) indispensable au runtime
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
 USER nextjs
 EXPOSE 3000
