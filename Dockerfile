@@ -41,6 +41,10 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
 
+# Packages externes non bundlés par webpack
+COPY --from=builder /app/node_modules/docx ./node_modules/docx
+COPY --from=builder /app/node_modules/jszip ./node_modules/jszip
+
 RUN mkdir -p /app/uploads && chown -R nextjs:nodejs /app/uploads
 USER nextjs
 EXPOSE 3000

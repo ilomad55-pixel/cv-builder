@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseCvWithAI } from "@/lib/ai/parser"
+import OpenAI from "openai"
 
 export async function POST(
   _request: NextRequest,
@@ -32,6 +33,24 @@ export async function POST(
   try {
     parsed = await parseCvWithAI(cv.rawText)
   } catch (err) {
+    if (err instanceof OpenAI.APIError) {
+      if (err.status === 429) {
+        return NextResponse.json(
+          { error: "Quota OpenAI dépassé — rechargez votre compte sur platform.openai.com/account/billing" },
+          { status: 503 }
+        )
+      }
+      if (err.status === 401) {
+        return NextResponse.json(
+          { error: "Clé API OpenAI invalide — vérifiez OPENAI_API_KEY dans le .env" },
+          { status: 503 }
+        )
+      }
+      return NextResponse.json(
+        { error: `Erreur OpenAI (${err.status}) : ${err.message}` },
+        { status: 503 }
+      )
+    }
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Erreur du parsing IA" },
       { status: 500 }
