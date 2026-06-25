@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { downloadFromR2, extractKeyFromUrl } from "@/lib/storage/r2"
+import { downloadFile, extractKey } from "@/lib/storage"
 import { extractText, mimeTypeFromExtension } from "@/lib/parsers"
 
 export async function POST(
@@ -24,8 +24,8 @@ export async function POST(
 
   let buffer: Buffer
   try {
-    const key = extractKeyFromUrl(cv.originalFileUrl)
-    buffer = await downloadFromR2(key)
+    const key = extractKey(cv.originalFileUrl)
+    buffer = await downloadFile(key)
   } catch {
     return NextResponse.json(
       { error: "Impossible de télécharger le fichier depuis le stockage" },

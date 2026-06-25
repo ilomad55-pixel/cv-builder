@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
-import { uploadToR2 } from "@/lib/storage/r2"
+import { uploadFile } from "@/lib/storage"
 import { prisma } from "@/lib/prisma"
 import { extractText } from "@/lib/parsers"
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
   // Upload R2 et extraction texte en parallèle
   const [fileUrl, parseResult] = await Promise.all([
-    uploadToR2({ buffer, key, contentType: file.type }).catch(() => null),
+    uploadFile({ buffer, key, contentType: file.type }).catch(() => null),
     extractText(buffer, file.type),
   ])
 
