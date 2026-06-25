@@ -23,7 +23,7 @@ export async function GET(
 
   try {
     const buffer = await readFileLocally(key)
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       headers: {
         "Content-Type": MIME_BY_EXT[ext] ?? "application/octet-stream",
         "Content-Disposition": "inline",
