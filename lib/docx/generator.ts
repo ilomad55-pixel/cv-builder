@@ -94,13 +94,34 @@ function detectImageType(buf: Buffer): "png" | "jpg" | "gif" | "bmp" {
   return "png"
 }
 
+// Fit dans un max de 140×70 en respectant les proportions
+function logoSize(w: number, h: number): { width: number; height: number } {
+  const MAX_W = 140
+  const MAX_H = 70
+  const ratio = Math.min(MAX_W / w, MAX_H / h, 1)
+  return { width: Math.round(w * ratio), height: Math.round(h * ratio) }
+}
+
 function logoParagraph(logoBuffer: Buffer): Paragraph {
+  let width = 100
+  let height = 100
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sizeOf = require("image-size")
+    const dims = sizeOf(logoBuffer)
+    if (dims?.width && dims?.height) {
+      const s = logoSize(dims.width, dims.height)
+      width = s.width
+      height = s.height
+    }
+  } catch { /* fallback sur 100×100 */ }
+
   return new Paragraph({
     children: [
       new ImageRun({
         type: detectImageType(logoBuffer),
         data: logoBuffer,
-        transformation: { width: 130, height: 45 },
+        transformation: { width, height },
       }),
     ],
     alignment: AlignmentType.RIGHT,
