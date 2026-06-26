@@ -203,6 +203,11 @@ export async function POST(
     })
   })
 
+  const autoWarnings = [...parsed.parsing.warnings]
+  if (parsed.experiences.length === 0) {
+    autoWarnings.unshift("Aucune expérience extraite — section non détectée ou format non reconnu dans le texte brut")
+  }
+
   return NextResponse.json({
     success: true,
     summary: {
@@ -212,7 +217,7 @@ export async function POST(
       languages: parsed.languages.length,
       certifications: parsed.certifications.length,
       confidence: parsed.parsing.confidence,
-      warnings: parsed.parsing.warnings,
+      warnings: autoWarnings,
     },
   })
 }

@@ -105,14 +105,18 @@ RÈGLES ABSOLUES :
 3. Conserve les formulations professionnelles originales sans paraphrase excessive
 4. Les données sensibles (date de naissance, nationalité, situation maritale, permis) → privateData uniquement
 5. Normalise les niveaux de langues en CEFR (A1, A2, B1, B2, C1, C2 ou "native")
-6. Pour chaque expérience : extrais TOUS les éléments disponibles — missions, réalisations chiffrées, technologies, méthodes
-   - context : 1 à 3 lignes décrivant l'environnement, le périmètre, la mission générale du poste
-   - achievements : LISTE EXHAUSTIVE de toutes les réalisations, missions détaillées, résultats — chaque bullet point du CV original devient UNE ligne séparée par \n. Ne tronque JAMAIS cette liste. Si le CV a 6 bullets, achievements doit avoir 6 lignes. Préfixe chaque ligne avec "– " si le CV utilise ce format.
-   - Ne mets PAS les réalisations dans context. Ne saute PAS de bullet point.
+6. EXPÉRIENCES — priorité absolue, à extraire EN PREMIER :
+   - Un bloc expérience = titre de poste + entreprise + dates. Cherche ces blocs dans tout le document.
+   - Sections pouvant les contenir : "Expériences", "Parcours", "Historique", "Experience", "Emplois", "Missions"
+   - CHAQUE poste = 1 objet dans experiences[]. Ne regroupe JAMAIS plusieurs postes.
+   - context : description générale du poste (1-3 lignes). null si absent.
+   - achievements : tous les bullet points de missions/réalisations, chaque bullet séparé par \n. null si absent.
+   - Ne déplace PAS le contenu d'une expérience vers skills ou profile.
+   - Si le CV contient à la fois des compétences ET des expériences, les deux tableaux doivent être remplis.
 7. Distingue certifications (avec émetteur officiel) vs formations académiques
 8. Estime seniority basé sur années d'expérience et responsabilités : junior|confirmed|senior|lead|expert|unknown
-9. technologies : liste séparée par des virgules
-10. methods : méthodologies et approches utilisées dans le poste (Agile, Scrum, etc.)
+9. technologies dans une expérience : uniquement les techs utilisées DANS CE POSTE (liste CSV)
+10. methods : méthodologies utilisées dans le poste (Agile, Scrum, etc.)
 11. NOM DU CANDIDAT — règles strictes :
     - Le nom est TOUJOURS présent dans un CV. Cherche-le en en-tête, dans les coordonnées, dans l'email si nécessaire.
     - Si le nom est en MAJUSCULES (ex: "DUPONT JEAN-MARIE"), convertis en format Titre : lastName="Dupont", firstName="Jean-Marie"

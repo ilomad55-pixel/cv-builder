@@ -60,12 +60,17 @@ export function AiParseButton({ cvId, label = "Parser avec l'IA" }: { cvId: stri
             <ConfidenceBadge value={summary.confidence} />
           </div>
           <div className="flex flex-wrap gap-x-4 gap-y-1 text-green-700 mb-2">
-            <span>{summary.experiences} exp.</span>
+            <span className={summary.experiences === 0 ? "text-red-600 font-semibold" : ""}>{summary.experiences} exp.</span>
             <span>{summary.skills} compétences</span>
             <span>{summary.education} formations</span>
             <span>{summary.languages} langues</span>
             <span>{summary.certifications} certifications</span>
           </div>
+          {summary.experiences === 0 && (
+            <div className="mt-1 p-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+              ⚠ Aucune expérience détectée. Causes possibles : section "Expériences" absente du texte extrait, format non reconnu (tableau Word, PDF scanné), ou texte tronqué. Vérifiez le texte brut et relancez l&apos;extraction si nécessaire.
+            </div>
+          )}
           {summary.warnings.length > 0 && (
             <div className="mt-2 pt-2 border-t border-green-200">
               <p className="text-amber-700 font-medium mb-1">Avertissements :</p>
