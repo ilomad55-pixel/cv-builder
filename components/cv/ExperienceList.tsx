@@ -216,13 +216,13 @@ export function ExperienceList({ experiences, cvId }: { experiences: Experience[
               {exp.context && (
                 <div className="mt-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Contexte</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">{exp.context}</p>
+                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{exp.context}</p>
                 </div>
               )}
               {exp.achievements && (
                 <div className="mt-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Réalisations</p>
-                  <p className="text-xs text-gray-600 leading-relaxed">{exp.achievements}</p>
+                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{exp.achievements}</p>
                 </div>
               )}
               {(exp.technologies || exp.methods) && (

@@ -442,8 +442,8 @@ function expBlock1(exp: Exp, c: string, f: string): Paragraph[] {
     new Paragraph({ children: [new TextRun({ text: exp.title, size: 22, bold: true, font: f }), new TextRun({ text: `\t${dateStr}`, size: 20, font: f, color: "666666" })], tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }], spacing: { before: 200, after: 40 } }),
     new Paragraph({ children: [new TextRun({ text: companyStr, size: 20, font: f, color: c, italics: true })], spacing: { after: 60 } }),
   ]
-  if (exp.context) paras.push(labeledLine("Contexte", exp.context, f))
-  if (exp.achievements) paras.push(labeledLine("Réalisations", exp.achievements, f))
+  if (exp.context) paras.push(...labeledBlock("Contexte", exp.context, f))
+  if (exp.achievements) paras.push(...labeledBlock("Réalisations", exp.achievements, f))
   if (exp.technologies) paras.push(labeledLine("Technologies", exp.technologies, f))
   if (exp.methods) paras.push(labeledLine("Méthodes", exp.methods, f))
   return paras
@@ -456,8 +456,8 @@ function expBlock2(exp: Exp, c: string, f: string): Paragraph[] {
     new Paragraph({ children: [new TextRun({ text: `${exp.title}  `, size: 22, bold: true, font: f }), new TextRun({ text: companyStr, size: 21, font: f, color: c })], spacing: { before: 240, after: 40 }, border: { left: { style: BorderStyle.SINGLE, size: 12, color: c, space: 8 } }, indent: { left: 120 } }),
     new Paragraph({ children: [new TextRun({ text: dateStr, size: 19, font: f, color: "888888" })], indent: { left: 120 }, spacing: { after: 60 } }),
   ]
-  if (exp.context) paras.push(new Paragraph({ children: [new TextRun({ text: exp.context, size: 19, font: f })], indent: { left: 120 }, spacing: { after: 40 } }))
-  if (exp.achievements) paras.push(new Paragraph({ children: [new TextRun({ text: exp.achievements, size: 19, font: f })], indent: { left: 120 }, spacing: { after: 40 } }))
+  if (exp.context) paras.push(...textLines(exp.context, 19, f, 120))
+  if (exp.achievements) paras.push(...textLines(exp.achievements, 19, f, 120))
   if (exp.technologies) paras.push(new Paragraph({ children: [new TextRun({ text: "Stack : ", size: 18, bold: true, font: f, color: c }), new TextRun({ text: exp.technologies, size: 18, font: f })], indent: { left: 120 }, spacing: { after: 60 } }))
   return paras
 }
@@ -469,8 +469,8 @@ function expBlock3(exp: Exp, f: string): Paragraph[] {
     new Paragraph({ children: [new TextRun({ text: exp.title, size: 22, bold: true, font: f })], spacing: { before: 180, after: 30 } }),
     new Paragraph({ children: [new TextRun({ text: `${companyStr} | ${dateStr}`, size: 20, font: f })], spacing: { after: 60 } }),
   ]
-  if (exp.context) paras.push(new Paragraph({ children: [new TextRun({ text: exp.context, size: 19, font: f })], spacing: { after: 40 } }))
-  if (exp.achievements) paras.push(new Paragraph({ children: [new TextRun({ text: exp.achievements, size: 19, font: f })], spacing: { after: 40 } }))
+  if (exp.context) paras.push(...textLines(exp.context, 19, f))
+  if (exp.achievements) paras.push(...textLines(exp.achievements, 19, f))
   if (exp.technologies) paras.push(new Paragraph({ children: [new TextRun({ text: `Compétences : ${exp.technologies}`, size: 19, font: f })], spacing: { after: 60 } }))
   return paras
 }
@@ -490,6 +490,35 @@ function atsSectionTitle(text: string, f: string): Paragraph {
 
 function labeledLine(label: string, value: string, f: string): Paragraph {
   return new Paragraph({ children: [new TextRun({ text: `${label} : `, size: 19, bold: true, font: f }), new TextRun({ text: value, size: 19, font: f })], spacing: { after: 40 } })
+}
+
+// Découpe un texte multi-lignes en paragraphes individuels (1 par ligne non vide)
+function textLines(value: string, size: number, f: string, indent?: number): Paragraph[] {
+  return value
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map((line) => new Paragraph({
+      children: [new TextRun({ text: line, size, font: f })],
+      indent: indent ? { left: indent } : undefined,
+      spacing: { after: 40 },
+    }))
+}
+
+// Bloc label + lignes : "Contexte :" suivi de chaque ligne en retrait
+function labeledBlock(label: string, value: string, f: string, indent = 120): Paragraph[] {
+  const lines = value.split("\n").map((l) => l.trim()).filter(Boolean)
+  if (lines.length === 0) return []
+  // Une seule ligne : format compact "Label : valeur"
+  if (lines.length === 1) return [labeledLine(label, lines[0], f)]
+  return [
+    new Paragraph({ children: [new TextRun({ text: `${label} :`, size: 19, bold: true, font: f })], spacing: { after: 20 } }),
+    ...lines.map((line) => new Paragraph({
+      children: [new TextRun({ text: line, size: 19, font: f })],
+      indent: { left: indent },
+      spacing: { after: 40 },
+    })),
+  ]
 }
 
 // ─── Export principal ─────────────────────────────────────────────────────────
