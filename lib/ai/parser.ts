@@ -110,7 +110,7 @@ RÈGLES ABSOLUES :
    - Sections pouvant les contenir : "Expériences", "Parcours", "Historique", "Experience", "Emplois", "Missions"
    - CHAQUE poste = 1 objet dans experiences[]. Ne regroupe JAMAIS plusieurs postes.
    - context : description générale du poste (1-3 lignes). null si absent.
-   - achievements : tous les bullet points de missions/réalisations, chaque bullet séparé par \n. null si absent.
+   - achievements : chaque réalisation/mission sur UNE LIGNE SÉPARÉE par \n (caractère saut de ligne). Exemple : "Assurer le suivi des incidents.\nRédiger les spécifications.\nCoordонner les équipes." — INTERDIT de mettre tout sur une seule ligne. null si aucune réalisation.
    - Ne déplace PAS le contenu d'une expérience vers skills ou profile.
    - Si le CV contient à la fois des compétences ET des expériences, les deux tableaux doivent être remplis.
 7. Distingue certifications (avec émetteur officiel) vs formations académiques

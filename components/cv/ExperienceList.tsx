@@ -99,6 +99,19 @@ function ExperienceForm({ form, onChange, onCheck, onSave, onCancel, loading, er
   )
 }
 
+function splitAchievements(text: string): string[] {
+  // 1. Split sur saut de ligne (format normal post-parsing)
+  const byLine = text.split(/\r?\n/).map(l => l.replace(/^[-•*]\s*/, "").trim()).filter(Boolean)
+  if (byLine.length > 1) return byLine
+
+  // 2. Split sur "- " en début de segment (format "- item - item")
+  const byDash = text.split(/\s+-\s+/).map(l => l.trim()).filter(Boolean)
+  if (byDash.length > 1) return byDash
+
+  // 3. Une seule ligne → on la retourne telle quelle
+  return byLine
+}
+
 export function ExperienceList({ experiences, cvId }: { experiences: Experience[]; cvId: string }) {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -225,10 +238,10 @@ export function ExperienceList({ experiences, cvId }: { experiences: Experience[
                 <div className="mt-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Réalisations</p>
                   <ul className="space-y-0.5">
-                    {exp.achievements.split("\n").filter(l => l.trim()).map((line, i) => (
+                    {splitAchievements(exp.achievements).map((line, i) => (
                       <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600 leading-relaxed">
-                        <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-brand-400" />
-                        <span>{line.trim()}</span>
+                        <span className="mt-1.5 shrink-0 w-1.5 h-1.5 rounded-full bg-brand-400" />
+                        <span>{line}</span>
                       </li>
                     ))}
                   </ul>
