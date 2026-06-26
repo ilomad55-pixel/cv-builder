@@ -7,6 +7,10 @@ import { ParseButton } from "@/components/cv/ParseButton"
 import { AiParseButton } from "@/components/cv/AiParseButton"
 import { ContactCard } from "@/components/cv/ContactCard"
 import { ExperienceList } from "@/components/cv/ExperienceList"
+import { SkillsSection } from "@/components/cv/SkillsSection"
+import { EducationSection } from "@/components/cv/EducationSection"
+import { LanguagesSection } from "@/components/cv/LanguagesSection"
+import { CertificationsSection } from "@/components/cv/CertificationsSection"
 import { GenerateSection } from "@/components/cv/GenerateSection"
 import Link from "next/link"
 
@@ -19,6 +23,10 @@ export default async function CvDetailPage({ params }: { params: { id: string } 
     include: {
       contact: true,
       experiences: { orderBy: { order: "asc" } },
+      skills: { orderBy: { order: "asc" } },
+      educations: { orderBy: { order: "asc" } },
+      languages: { orderBy: { order: "asc" } },
+      certifications: { orderBy: { order: "asc" } },
       company: { select: { primaryColor: true } },
     },
   })
@@ -33,9 +41,7 @@ export default async function CvDetailPage({ params }: { params: { id: string } 
     <div className="max-w-3xl mx-auto">
       {/* Breadcrumb */}
       <div className="flex items-center gap-2 text-sm text-gray-500 mb-6">
-        <Link href="/dashboard" className="hover:text-gray-900 transition-colors">
-          CVs
-        </Link>
+        <Link href="/dashboard" className="hover:text-gray-900 transition-colors">CVs</Link>
         <span>/</span>
         <span className="text-gray-900 truncate max-w-xs">{cv.originalFileName}</span>
       </div>
@@ -48,9 +54,7 @@ export default async function CvDetailPage({ params }: { params: { id: string } 
             <p className="text-sm text-gray-500 mt-1">
               Importé le{" "}
               {new Date(cv.createdAt).toLocaleDateString("fr-FR", {
-                day: "numeric",
-                month: "long",
-                year: "numeric",
+                day: "numeric", month: "long", year: "numeric",
               })}
             </p>
           </div>
@@ -100,15 +104,41 @@ export default async function CvDetailPage({ params }: { params: { id: string } 
         </div>
       )}
 
-      {/* Re-parser (disponible si déjà parsé) */}
+      {/* Données structurées — Compétences */}
+      {isParsed && (
+        <div className="mb-4">
+          <SkillsSection skills={cv.skills} cvId={cv.id} />
+        </div>
+      )}
+
+      {/* Données structurées — Formation */}
+      {isParsed && (
+        <div className="mb-4">
+          <EducationSection educations={cv.educations} cvId={cv.id} />
+        </div>
+      )}
+
+      {/* Données structurées — Langues */}
+      {isParsed && (
+        <div className="mb-4">
+          <LanguagesSection languages={cv.languages} cvId={cv.id} />
+        </div>
+      )}
+
+      {/* Données structurées — Certifications */}
+      {isParsed && (
+        <div className="mb-4">
+          <CertificationsSection certifications={cv.certifications} cvId={cv.id} />
+        </div>
+      )}
+
+      {/* Actions re-parsing */}
       {isParsed && (
         <div className="bg-white rounded-xl border border-gray-200 p-4 mb-4">
           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-500">
-                {cv.experiences.length} expérience{cv.experiences.length !== 1 ? "s" : ""} extraite{cv.experiences.length !== 1 ? "s" : ""}
-              </p>
-            </div>
+            <p className="text-xs text-gray-500">
+              {cv.experiences.length} exp · {cv.skills.length} compétences · {cv.educations.length} formations · {cv.languages.length} langues · {cv.certifications.length} certif
+            </p>
             <div className="flex gap-2">
               <ParseButton cvId={cv.id} label="Re-extraire le texte" />
               <AiParseButton cvId={cv.id} label="Re-parser avec l'IA" />
@@ -117,16 +147,13 @@ export default async function CvDetailPage({ params }: { params: { id: string } 
         </div>
       )}
 
-      {/* Aperçu texte brut (collapsible visuel — uniquement si texte disponible) */}
+      {/* Aperçu texte brut */}
       {cv.rawText && !isParsed && (
         <div className="bg-white rounded-xl border border-gray-200 p-5 mb-4">
-          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-            Texte brut extrait
-          </p>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Texte brut extrait</p>
           <div className="bg-gray-50 rounded-lg p-3 max-h-52 overflow-y-auto">
             <pre className="text-xs text-gray-500 whitespace-pre-wrap font-mono leading-relaxed">
-              {cv.rawText.slice(0, 1500)}
-              {cv.rawText.length > 1500 ? "\n\n[…]" : ""}
+              {cv.rawText.slice(0, 1500)}{cv.rawText.length > 1500 ? "\n\n[…]" : ""}
             </pre>
           </div>
         </div>
@@ -135,11 +162,7 @@ export default async function CvDetailPage({ params }: { params: { id: string } 
       {/* Génération Word */}
       {isParsed ? (
         <div className="mb-4">
-          <GenerateSection
-            cvId={cv.id}
-            primaryColor={cv.company.primaryColor}
-            currentTemplateId={cv.templateId}
-          />
+          <GenerateSection cvId={cv.id} primaryColor={cv.company.primaryColor} currentTemplateId={cv.templateId} />
         </div>
       ) : (
         <div className="bg-white rounded-xl border border-dashed border-gray-200 p-5 opacity-50">

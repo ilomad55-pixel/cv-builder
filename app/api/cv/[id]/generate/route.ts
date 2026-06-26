@@ -18,6 +18,10 @@ export async function POST(
     include: {
       contact: true,
       experiences: { orderBy: { order: "asc" } },
+      skills: { where: { display: true }, orderBy: { order: "asc" } },
+      educations: { orderBy: { order: "asc" } },
+      languages: { where: { display: true }, orderBy: { order: "asc" } },
+      certifications: { where: { display: true }, orderBy: { order: "asc" } },
       company: { select: { name: true, primaryColor: true, fontFamily: true } },
     },
   })
@@ -32,7 +36,14 @@ export async function POST(
   const templateId = Number(body.templateId) || 1
 
   const buffer = await generateCvDocx(
-    { contact: cv.contact, experiences: cv.experiences },
+    {
+      contact: cv.contact,
+      experiences: cv.experiences,
+      skills: cv.skills,
+      educations: cv.educations,
+      languages: cv.languages,
+      certifications: cv.certifications,
+    },
     { companyName: cv.company.name, primaryColor: cv.company.primaryColor, fontFamily: cv.company.fontFamily },
     templateId
   )

@@ -9,35 +9,41 @@ datasource db {
 }
 
 model Company {
-  id             String   @id @default(cuid())
-  name           String
-  email          String   @unique
-  passwordHash   String
-  logoUrl        String?
-  primaryColor   String   @default("#3b5bdb")
-  secondaryColor String   @default("#ffffff")
-  fontFamily     String   @default("Arial")
-  cvs            Cv[]
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id              String   @id @default(cuid())
+  name            String
+  email           String   @unique
+  passwordHash    String
+  logoUrl         String?
+  primaryColor    String   @default("#3b5bdb")
+  secondaryColor  String   @default("#ffffff")
+  fontFamily      String   @default("Arial")
+  sectionSettings Json?
+  cvs             Cv[]
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 
   @@map("companies")
 }
 
 model Cv {
-  id               String      @id @default(cuid())
+  id               String          @id @default(cuid())
   companyId        String
-  company          Company     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company          Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
   originalFileUrl  String
   originalFileName String
-  status           CvStatus    @default(PENDING)
+  status           CvStatus        @default(PENDING)
   rawText          String?
+  parsedData       Json?
   templateId       Int?
   generatedFileUrl String?
   contact          Contact?
   experiences      Experience[]
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+  skills           Skill[]
+  educations       Education[]
+  languages        Language[]
+  certifications   Certification[]
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
 
   @@map("cvs")
 }
@@ -50,15 +56,20 @@ enum CvStatus {
 }
 
 model Contact {
-  id          String  @id @default(cuid())
-  cvId        String  @unique
-  cv          Cv      @relation(fields: [cvId], references: [id], onDelete: Cascade)
-  firstName   String  @default("")
-  lastName    String  @default("")
-  address     String?
-  email       String?
-  phone       String?
-  profileText String?
+  id                String  @id @default(cuid())
+  cvId              String  @unique
+  cv                Cv      @relation(fields: [cvId], references: [id], onDelete: Cascade)
+  firstName         String  @default("")
+  lastName          String  @default("")
+  headline          String?
+  seniority         String?
+  yearsOfExperience String?
+  address           String?
+  email             String?
+  phone             String?
+  linkedin          String?
+  github            String?
+  profileText       String?
 
   @@map("contacts")
 }
@@ -68,13 +79,74 @@ model Experience {
   cvId         String
   cv           Cv      @relation(fields: [cvId], references: [id], onDelete: Cascade)
   title        String  @default("")
+  company      String  @default("")
+  client       String?
   startDate    String  @default("")
   endDate      String?
-  company      String  @default("")
+  isCurrent    Boolean @default(false)
   context      String?
   achievements String?
   technologies String?
+  methods      String?
   order        Int     @default(0)
 
   @@map("experiences")
+}
+
+model Skill {
+  id       String  @id @default(cuid())
+  cvId     String
+  cv       Cv      @relation(fields: [cvId], references: [id], onDelete: Cascade)
+  name     String  @default("")
+  category String  @default("technical")
+  level    String?
+  display  Boolean @default(true)
+  order    Int     @default(0)
+
+  @@map("skills")
+}
+
+model Education {
+  id           String  @id @default(cuid())
+  cvId         String
+  cv           Cv      @relation(fields: [cvId], references: [id], onDelete: Cascade)
+  degree       String  @default("")
+  fieldOfStudy String?
+  school       String  @default("")
+  location     String?
+  startYear    String?
+  endYear      String?
+  level        String?
+  honors       String?
+  order        Int     @default(0)
+
+  @@map("educations")
+}
+
+model Language {
+  id         String  @id @default(cuid())
+  cvId       String
+  cv         Cv      @relation(fields: [cvId], references: [id], onDelete: Cascade)
+  language   String  @default("")
+  cefrLevel  String?
+  levelLabel String?
+  display    Boolean @default(true)
+  order      Int     @default(0)
+
+  @@map("languages")
+}
+
+model Certification {
+  id             String  @id @default(cuid())
+  cvId           String
+  cv             Cv      @relation(fields: [cvId], references: [id], onDelete: Cascade)
+  name           String  @default("")
+  issuer         String?
+  issueDate      String?
+  expirationDate String?
+  credentialUrl  String?
+  display        Boolean @default(true)
+  order          Int     @default(0)
+
+  @@map("certifications")
 }
