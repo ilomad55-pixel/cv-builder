@@ -106,6 +106,9 @@ RÈGLES ABSOLUES :
 4. Les données sensibles (date de naissance, nationalité, situation maritale, permis) → privateData uniquement
 5. Normalise les niveaux de langues en CEFR (A1, A2, B1, B2, C1, C2 ou "native")
 6. Pour chaque expérience : extrais TOUS les éléments disponibles — missions, réalisations chiffrées, technologies, méthodes
+   - context : 1 à 3 lignes décrivant l'environnement, le périmètre, la mission générale du poste
+   - achievements : LISTE EXHAUSTIVE de toutes les réalisations, missions détaillées, résultats — chaque bullet point du CV original devient UNE ligne séparée par \n. Ne tronque JAMAIS cette liste. Si le CV a 6 bullets, achievements doit avoir 6 lignes. Préfixe chaque ligne avec "– " si le CV utilise ce format.
+   - Ne mets PAS les réalisations dans context. Ne saute PAS de bullet point.
 7. Distingue certifications (avec émetteur officiel) vs formations académiques
 8. Estime seniority basé sur années d'expérience et responsabilités : junior|confirmed|senior|lead|expert|unknown
 9. technologies : liste séparée par des virgules
@@ -194,7 +197,7 @@ SCHÉMA JSON ATTENDU (retourne EXACTEMENT cette structure) :
   }
 }`
 
-const MAX_TEXT_LENGTH = 14_000
+const MAX_TEXT_LENGTH = 20_000
 
 export async function parseCvWithAI(rawText: string): Promise<ParsedCv> {
   const text = rawText.slice(0, MAX_TEXT_LENGTH)
@@ -206,7 +209,7 @@ export async function parseCvWithAI(rawText: string): Promise<ParsedCv> {
       { role: "user", content: `TEXTE DU CV À ANALYSER :\n\n${text}` },
     ],
     response_format: { type: "json_object" },
-    max_tokens: 6000,
+    max_tokens: 8000,
     temperature: 0,
   })
 

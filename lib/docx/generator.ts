@@ -6,6 +6,7 @@ import {
   ImageRun,
   AlignmentType,
   BorderStyle,
+  ShadingType,
   UnderlineType,
   TabStopType,
   TabStopPosition,
@@ -369,8 +370,19 @@ function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo
 
   if (logo) children.push(logoParagraph(logo))
 
-  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv), size: 52, bold: true, color: c, font: f })], spacing: { after: 60 } }))
-  if (cv.contact?.headline) children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.headline, size: 24, font: f, color: "444444", italics: true })], spacing: { after: 80 } }))
+  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv), size: 52, bold: true, color: c, font: f })], spacing: { after: 80 } }))
+  if (cv.contact?.headline) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: cv.contact.headline.toUpperCase(), size: 22, bold: true, color: c, font: f })],
+      border: {
+        top:    { style: BorderStyle.SINGLE, size: 6, color: c, space: 5 },
+        bottom: { style: BorderStyle.SINGLE, size: 6, color: c, space: 5 },
+        left:   { style: BorderStyle.SINGLE, size: 6, color: c, space: 8 },
+        right:  { style: BorderStyle.SINGLE, size: 6, color: c, space: 8 },
+      },
+      spacing: { before: 0, after: 120 },
+    }))
+  }
   const cl = contactLine(cv)
   if (cl) children.push(new Paragraph({ children: [new TextRun({ text: cl, size: 20, font: f, color: "555555" })], spacing: { after: 240 } }))
   children.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: c } }, spacing: { after: 240 } }))
@@ -392,8 +404,14 @@ function template2(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo
 
   if (logo) children.push(logoParagraph(logo))
 
-  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv).toUpperCase(), size: 64, bold: true, color: c, font: f })], spacing: { after: 60 } }))
-  if (cv.contact?.headline) children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.headline, size: 24, font: f, italics: true, color: "555555" })], spacing: { after: 100 } }))
+  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv).toUpperCase(), size: 64, bold: true, color: c, font: f })], spacing: { after: 80 } }))
+  if (cv.contact?.headline) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: cv.contact.headline.toUpperCase(), size: 22, bold: true, color: "FFFFFF", font: f })],
+      shading: { type: ShadingType.CLEAR, color: "auto", fill: c },
+      spacing: { before: 0, after: 120 },
+    }))
+  }
   children.push(new Paragraph({ border: { bottom: { style: BorderStyle.THICK, size: 16, color: c } }, spacing: { after: 160 } }))
   const contactParts = [cv.contact?.email, cv.contact?.phone, cv.contact?.address].filter(Boolean)
   if (contactParts.length > 0) {
@@ -420,7 +438,15 @@ function template3(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo
   if (logo) children.push(logoParagraph(logo))
 
   children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv), size: 44, bold: true, font: f })], spacing: { after: 60 } }))
-  if (cv.contact?.headline) children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.headline, size: 22, font: f })], spacing: { after: 60 } }))
+  if (cv.contact?.headline) {
+    children.push(new Paragraph({
+      children: [new TextRun({ text: cv.contact.headline.toUpperCase(), size: 22, bold: true, font: f })],
+      border: {
+        bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
+      },
+      spacing: { after: 100 },
+    }))
+  }
   const cl = contactLine(cv)
   if (cl) children.push(new Paragraph({ children: [new TextRun({ text: cl, size: 20, font: f })], spacing: { after: 200 } }))
 
