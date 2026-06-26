@@ -3,6 +3,7 @@ import {
   Packer,
   Paragraph,
   TextRun,
+  ImageRun,
   AlignmentType,
   BorderStyle,
   UnderlineType,
@@ -10,6 +11,7 @@ import {
   TabStopPosition,
 } from "docx"
 
+// ─── Types ────────────────────────────────────────────────────────────────────
 export interface CvData {
   contact?: {
     firstName: string
@@ -52,6 +54,9 @@ export interface BrandingData {
   fontFamily: string
 }
 
+export type SectionSettings = Record<string, { visible: boolean; order: number }>
+
+// ─── Helpers de base ──────────────────────────────────────────────────────────
 function hex(color: string): string {
   return color.replace("#", "").toUpperCase()
 }
@@ -66,79 +71,80 @@ function contactLine(cv: CvData): string {
     .join("   |   ")
 }
 
-// ─── Template 1 : Classique ──────────────────────────────────────────────────
-function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null): Document {
-  const c = hex(b.primaryColor)
-  const f = b.fontFamily
-  const children: Paragraph[] = []
-  const show = (id: string) => !ss || !ss[id] || ss[id].visible
+function orderedSectionIds(ss: SectionSettings | null): string[] {
+  const DEFAULT_ORDER = ["profile", "experiences", "skills", "methodologies", "soft_skills", "education", "languages", "certifications"]
+  if (!ss) return DEFAULT_ORDER
+  return [...DEFAULT_ORDER].sort((a, b) => {
+    const ao = ss[a]?.order ?? 99
+    const bo = ss[b]?.order ?? 99
+    return ao - bo
+  })
+}
 
-  // En-tête
-  children.push(new Paragraph({
-    children: [new TextRun({ text: fullName(cv), size: 52, bold: true, color: c, font: f })],
-    spacing: { after: 60 },
-  }))
+function isVisible(ss: SectionSettings | null, id: string): boolean {
+  return !ss || !ss[id] || ss[id].visible
+}
 
-  if (cv.contact?.headline) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.headline, size: 24, font: f, color: "444444", italics: true })],
-      spacing: { after: 80 },
-    }))
-  }
+// ─── Logo helper ──────────────────────────────────────────────────────────────
+function logoParagraph(logoBuffer: Buffer): Paragraph {
+  return new Paragraph({
+    children: [
+      new ImageRun({
+        data: logoBuffer,
+        transformation: { width: 130, height: 45 },
+      }),
+    ],
+    alignment: AlignmentType.RIGHT,
+    spacing: { after: 100 },
+  })
+}
 
-  const contact = contactLine(cv)
-  if (contact) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: contact, size: 20, font: f, color: "555555" })],
-      spacing: { after: 240 },
-    }))
-  }
+// ─── Builders de sections partagés ───────────────────────────────────────────
+type SectionMap = Map<string, () => Paragraph[]>
 
-  children.push(new Paragraph({
-    border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: c } },
-    spacing: { after: 240 },
-  }))
+function buildSections1(cv: CvData, ss: SectionSettings | null, c: string, f: string): SectionMap {
+  const m: SectionMap = new Map()
 
-  // Profil
-  if (show("profile") && cv.contact?.profileText) {
-    children.push(sectionTitle("PROFIL", c, f))
-    children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })],
-      spacing: { after: 240 },
-    }))
-  }
+  m.set("profile", () => {
+    if (!isVisible(ss, "profile") || !cv.contact?.profileText) return []
+    return [
+      sectionTitle("PROFIL", c, f),
+      new Paragraph({ children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })], spacing: { after: 240 } }),
+    ]
+  })
 
-  // Expériences
-  if (show("experiences") && cv.experiences.length > 0) {
-    children.push(sectionTitle("EXPÉRIENCES PROFESSIONNELLES", c, f))
-    for (const exp of cv.experiences) {
-      children.push(...expBlock1(exp, c, f))
-    }
-  }
+  m.set("experiences", () => {
+    if (!isVisible(ss, "experiences") || cv.experiences.length === 0) return []
+    return [sectionTitle("EXPÉRIENCES PROFESSIONNELLES", c, f), ...cv.experiences.flatMap((e) => expBlock1(e, c, f))]
+  })
 
-  // Compétences
-  const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
-  if (show("skills") && technical.length > 0) {
-    children.push(sectionTitle("COMPÉTENCES TECHNIQUES", c, f))
-    children.push(new Paragraph({
-      children: [new TextRun({ text: technical.map((s) => s.name).join(" · "), size: 20, font: f })],
-      spacing: { after: 180 },
-    }))
+  m.set("skills", () => {
+    const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
+    if (!isVisible(ss, "skills") || technical.length === 0) return []
+    const paras: Paragraph[] = [
+      sectionTitle("COMPÉTENCES TECHNIQUES", c, f),
+      new Paragraph({ children: [new TextRun({ text: technical.map((s) => s.name).join(" · "), size: 20, font: f })], spacing: { after: 100 } }),
+    ]
+    return paras
+  })
+
+  m.set("soft_skills", () => {
     const soft = cv.skills.filter((s) => s.category === "soft")
-    if (show("soft_skills") && soft.length > 0) {
-      children.push(labeledLine("Soft skills", soft.map((s) => s.name).join(", "), f))
-    }
-    const methods = cv.skills.filter((s) => s.category === "methodology")
-    if (show("methodologies") && methods.length > 0) {
-      children.push(labeledLine("Méthodes", methods.map((s) => s.name).join(", "), f))
-    }
-  }
+    if (!isVisible(ss, "soft_skills") || soft.length === 0) return []
+    return [labeledLine("Soft skills", soft.map((s) => s.name).join(", "), f)]
+  })
 
-  // Formation
-  if (show("education") && cv.educations.length > 0) {
-    children.push(sectionTitle("FORMATION", c, f))
+  m.set("methodologies", () => {
+    const methods = cv.skills.filter((s) => s.category === "methodology")
+    if (!isVisible(ss, "methodologies") || methods.length === 0) return []
+    return [labeledLine("Méthodes", methods.map((s) => s.name).join(", "), f)]
+  })
+
+  m.set("education", () => {
+    if (!isVisible(ss, "education") || cv.educations.length === 0) return []
+    const paras: Paragraph[] = [sectionTitle("FORMATION", c, f)]
     for (const edu of cv.educations) {
-      children.push(new Paragraph({
+      paras.push(new Paragraph({
         children: [
           new TextRun({ text: edu.degree, size: 22, bold: true, font: f }),
           new TextRun({ text: edu.fieldOfStudy ? ` — ${edu.fieldOfStudy}` : "", size: 20, font: f }),
@@ -147,37 +153,32 @@ function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null): Doc
         tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
         spacing: { before: 140, after: 30 },
       }))
-      children.push(new Paragraph({
-        children: [new TextRun({ text: edu.school, size: 20, font: f, color: c, italics: true })],
-        spacing: { after: edu.honors ? 30 : 80 },
-      }))
-      if (edu.honors) {
-        children.push(new Paragraph({
-          children: [new TextRun({ text: `Mention : ${edu.honors}`, size: 19, font: f, color: "666666" })],
-          spacing: { after: 80 },
-        }))
-      }
+      paras.push(new Paragraph({ children: [new TextRun({ text: edu.school, size: 20, font: f, color: c, italics: true })], spacing: { after: edu.honors ? 30 : 80 } }))
+      if (edu.honors) paras.push(new Paragraph({ children: [new TextRun({ text: `Mention : ${edu.honors}`, size: 19, font: f, color: "666666" })], spacing: { after: 80 } }))
     }
-  }
+    return paras
+  })
 
-  // Langues
-  if (show("languages") && cv.languages.length > 0) {
-    children.push(sectionTitle("LANGUES", c, f))
-    children.push(new Paragraph({
-      children: cv.languages.flatMap((l, i) => [
-        ...(i > 0 ? [new TextRun({ text: "   ·   ", size: 20, font: f, color: "AAAAAA" })] : []),
-        new TextRun({ text: l.language, size: 20, bold: true, font: f }),
-        new TextRun({ text: l.cefrLevel ? ` (${l.cefrLevel})` : l.levelLabel ? ` — ${l.levelLabel}` : "", size: 20, font: f, color: "777777" }),
-      ]),
-      spacing: { after: 180 },
-    }))
-  }
+  m.set("languages", () => {
+    if (!isVisible(ss, "languages") || cv.languages.length === 0) return []
+    return [
+      sectionTitle("LANGUES", c, f),
+      new Paragraph({
+        children: cv.languages.flatMap((l, i) => [
+          ...(i > 0 ? [new TextRun({ text: "   ·   ", size: 20, font: f, color: "AAAAAA" })] : []),
+          new TextRun({ text: l.language, size: 20, bold: true, font: f }),
+          new TextRun({ text: l.cefrLevel ? ` (${l.cefrLevel})` : l.levelLabel ? ` — ${l.levelLabel}` : "", size: 20, font: f, color: "777777" }),
+        ]),
+        spacing: { after: 180 },
+      }),
+    ]
+  })
 
-  // Certifications
-  if (show("certifications") && cv.certifications.length > 0) {
-    children.push(sectionTitle("CERTIFICATIONS", c, f))
+  m.set("certifications", () => {
+    if (!isVisible(ss, "certifications") || cv.certifications.length === 0) return []
+    const paras: Paragraph[] = [sectionTitle("CERTIFICATIONS", c, f)]
     for (const cert of cv.certifications) {
-      children.push(new Paragraph({
+      paras.push(new Paragraph({
         children: [
           new TextRun({ text: cert.name, size: 20, bold: true, font: f }),
           new TextRun({ text: cert.issuer ? ` — ${cert.issuer}` : "", size: 20, font: f, color: "666666" }),
@@ -186,261 +187,223 @@ function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null): Doc
         spacing: { before: 80, after: 40 },
       }))
     }
-  }
-
-  children.push(new Paragraph({
-    children: [new TextRun({ text: b.companyName, size: 16, color: "AAAAAA", font: f })],
-    alignment: AlignmentType.RIGHT,
-    spacing: { before: 400 },
-  }))
-
-  return new Document({
-    sections: [{ properties: { page: { margin: { top: 860, right: 860, bottom: 860, left: 860 } } }, children }],
+    return paras
   })
+
+  return m
 }
 
-// ─── Template 2 : Moderne ────────────────────────────────────────────────────
-function template2(cv: CvData, b: BrandingData, ss: SectionSettings | null): Document {
-  const c = hex(b.primaryColor)
-  const f = b.fontFamily
-  const children: Paragraph[] = []
-  const show = (id: string) => !ss || !ss[id] || ss[id].visible
+function buildSections2(cv: CvData, ss: SectionSettings | null, c: string, f: string): SectionMap {
+  const m: SectionMap = new Map()
 
-  children.push(new Paragraph({
-    children: [new TextRun({ text: fullName(cv).toUpperCase(), size: 64, bold: true, color: c, font: f })],
-    spacing: { after: 60 },
-  }))
+  m.set("profile", () => {
+    if (!isVisible(ss, "profile") || !cv.contact?.profileText) return []
+    return [sectionTitleModerne("PROFIL", c, f), new Paragraph({ children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })], spacing: { after: 280 } })]
+  })
 
-  if (cv.contact?.headline) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.headline, size: 24, font: f, italics: true, color: "555555" })],
-      spacing: { after: 100 },
-    }))
-  }
+  m.set("experiences", () => {
+    if (!isVisible(ss, "experiences") || cv.experiences.length === 0) return []
+    return [sectionTitleModerne("EXPÉRIENCES", c, f), ...cv.experiences.flatMap((e) => expBlock2(e, c, f))]
+  })
 
-  children.push(new Paragraph({
-    border: { bottom: { style: BorderStyle.THICK, size: 16, color: c } },
-    spacing: { after: 160 },
-  }))
+  m.set("skills", () => {
+    const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
+    if (!isVisible(ss, "skills") || technical.length === 0) return []
+    return [
+      sectionTitleModerne("COMPÉTENCES", c, f),
+      new Paragraph({ children: [new TextRun({ text: technical.map((s) => s.name).join("  ·  "), size: 20, font: f })], spacing: { after: 80 } }),
+    ]
+  })
 
-  const contactParts = [cv.contact?.email, cv.contact?.phone, cv.contact?.address].filter(Boolean)
-  if (contactParts.length > 0) {
-    children.push(new Paragraph({
-      children: contactParts.flatMap((part, i) => [
-        ...(i > 0 ? [new TextRun({ text: "  ·  ", size: 20, color: c, font: f, bold: true })] : []),
-        new TextRun({ text: part!, size: 20, font: f }),
-      ]),
-      spacing: { after: 320 },
-    }))
-  }
-
-  if (show("profile") && cv.contact?.profileText) {
-    children.push(sectionTitleModerne("PROFIL", c, f))
-    children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })],
-      spacing: { after: 280 },
-    }))
-  }
-
-  if (show("experiences") && cv.experiences.length > 0) {
-    children.push(sectionTitleModerne("EXPÉRIENCES", c, f))
-    for (const exp of cv.experiences) {
-      children.push(...expBlock2(exp, c, f))
-    }
-  }
-
-  const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
-  if (show("skills") && technical.length > 0) {
-    children.push(sectionTitleModerne("COMPÉTENCES", c, f))
-    children.push(new Paragraph({
-      children: [new TextRun({ text: technical.map((s) => s.name).join("  ·  "), size: 20, font: f })],
-      spacing: { after: 80 },
-    }))
+  m.set("soft_skills", () => {
     const soft = cv.skills.filter((s) => s.category === "soft")
-    if (show("soft_skills") && soft.length > 0) {
-      children.push(new Paragraph({
-        children: [
-          new TextRun({ text: "Soft : ", size: 19, bold: true, color: c, font: f }),
-          new TextRun({ text: soft.map((s) => s.name).join(", "), size: 19, font: f }),
-        ],
-        spacing: { after: 80 },
-      }))
-    }
-  }
+    if (!isVisible(ss, "soft_skills") || soft.length === 0) return []
+    return [new Paragraph({ children: [new TextRun({ text: "Soft : ", size: 19, bold: true, color: c, font: f }), new TextRun({ text: soft.map((s) => s.name).join(", "), size: 19, font: f })], spacing: { after: 80 } })]
+  })
 
-  if (show("education") && cv.educations.length > 0) {
-    children.push(sectionTitleModerne("FORMATION", c, f))
+  m.set("methodologies", () => {
+    const methods = cv.skills.filter((s) => s.category === "methodology")
+    if (!isVisible(ss, "methodologies") || methods.length === 0) return []
+    return [new Paragraph({ children: [new TextRun({ text: "Méthodes : ", size: 19, bold: true, color: c, font: f }), new TextRun({ text: methods.map((s) => s.name).join(", "), size: 19, font: f })], spacing: { after: 80 } })]
+  })
+
+  m.set("education", () => {
+    if (!isVisible(ss, "education") || cv.educations.length === 0) return []
+    const paras: Paragraph[] = [sectionTitleModerne("FORMATION", c, f)]
     for (const edu of cv.educations) {
-      children.push(new Paragraph({
-        children: [
-          new TextRun({ text: edu.degree, size: 21, bold: true, font: f }),
-          new TextRun({ text: edu.fieldOfStudy ? ` · ${edu.fieldOfStudy}` : "", size: 20, font: f }),
-        ],
+      paras.push(new Paragraph({
+        children: [new TextRun({ text: edu.degree, size: 21, bold: true, font: f }), new TextRun({ text: edu.fieldOfStudy ? ` · ${edu.fieldOfStudy}` : "", size: 20, font: f })],
         border: { left: { style: BorderStyle.SINGLE, size: 12, color: c, space: 8 } },
         indent: { left: 120 },
         spacing: { before: 160, after: 40 },
       }))
-      children.push(new Paragraph({
-        children: [new TextRun({ text: `${edu.school}${edu.endYear ? ` · ${edu.endYear}` : ""}`, size: 20, font: f, color: c })],
-        indent: { left: 120 },
-        spacing: { after: 80 },
-      }))
+      paras.push(new Paragraph({ children: [new TextRun({ text: `${edu.school}${edu.endYear ? ` · ${edu.endYear}` : ""}`, size: 20, font: f, color: c })], indent: { left: 120 }, spacing: { after: 80 } }))
     }
-  }
-
-  if (show("languages") && cv.languages.length > 0) {
-    children.push(sectionTitleModerne("LANGUES", c, f))
-    children.push(new Paragraph({
-      children: cv.languages.flatMap((l, i) => [
-        ...(i > 0 ? [new TextRun({ text: "  ·  ", size: 20, color: c, font: f })] : []),
-        new TextRun({ text: `${l.language}${l.cefrLevel ? ` (${l.cefrLevel})` : ""}`, size: 20, font: f }),
-      ]),
-      spacing: { after: 160 },
-    }))
-  }
-
-  if (show("certifications") && cv.certifications.length > 0) {
-    children.push(sectionTitleModerne("CERTIFICATIONS", c, f))
-    for (const cert of cv.certifications) {
-      children.push(new Paragraph({
-        children: [
-          new TextRun({ text: cert.name, size: 20, bold: true, font: f }),
-          new TextRun({ text: cert.issuer ? ` — ${cert.issuer}` : "", size: 20, font: f, color: "666666" }),
-        ],
-        spacing: { before: 60, after: 40 },
-      }))
-    }
-  }
-
-  children.push(new Paragraph({
-    children: [new TextRun({ text: b.companyName, size: 16, color: "AAAAAA", font: f })],
-    alignment: AlignmentType.RIGHT,
-    spacing: { before: 400 },
-  }))
-
-  return new Document({
-    sections: [{ properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } }, children }],
+    return paras
   })
+
+  m.set("languages", () => {
+    if (!isVisible(ss, "languages") || cv.languages.length === 0) return []
+    return [
+      sectionTitleModerne("LANGUES", c, f),
+      new Paragraph({ children: cv.languages.flatMap((l, i) => [...(i > 0 ? [new TextRun({ text: "  ·  ", size: 20, color: c, font: f })] : []), new TextRun({ text: `${l.language}${l.cefrLevel ? ` (${l.cefrLevel})` : ""}`, size: 20, font: f })]), spacing: { after: 160 } }),
+    ]
+  })
+
+  m.set("certifications", () => {
+    if (!isVisible(ss, "certifications") || cv.certifications.length === 0) return []
+    const paras: Paragraph[] = [sectionTitleModerne("CERTIFICATIONS", c, f)]
+    for (const cert of cv.certifications) {
+      paras.push(new Paragraph({ children: [new TextRun({ text: cert.name, size: 20, bold: true, font: f }), new TextRun({ text: cert.issuer ? ` — ${cert.issuer}` : "", size: 20, font: f, color: "666666" })], spacing: { before: 60, after: 40 } }))
+    }
+    return paras
+  })
+
+  return m
 }
 
-// ─── Template 3 : ATS Optimisé ───────────────────────────────────────────────
-function template3(cv: CvData, b: BrandingData, ss: SectionSettings | null): Document {
+function buildSections3(cv: CvData, ss: SectionSettings | null, f: string): SectionMap {
+  const m: SectionMap = new Map()
+
+  m.set("profile", () => {
+    if (!isVisible(ss, "profile") || !cv.contact?.profileText) return []
+    return [atsSectionTitle("Profil professionnel", f), new Paragraph({ children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })], spacing: { after: 200 } })]
+  })
+
+  m.set("skills", () => {
+    const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
+    if (!isVisible(ss, "skills") || technical.length === 0) return []
+    return [atsSectionTitle("Compétences techniques", f), new Paragraph({ children: [new TextRun({ text: technical.map((s) => s.name).join(", "), size: 20, font: f })], spacing: { after: 80 } })]
+  })
+
+  m.set("soft_skills", () => {
+    const soft = cv.skills.filter((s) => s.category === "soft")
+    if (!isVisible(ss, "soft_skills") || soft.length === 0) return []
+    return [new Paragraph({ children: [new TextRun({ text: `Soft skills : ${soft.map((s) => s.name).join(", ")}`, size: 20, font: f })], spacing: { after: 200 } })]
+  })
+
+  m.set("methodologies", () => {
+    const methods = cv.skills.filter((s) => s.category === "methodology")
+    if (!isVisible(ss, "methodologies") || methods.length === 0) return []
+    return [new Paragraph({ children: [new TextRun({ text: `Méthodes : ${methods.map((s) => s.name).join(", ")}`, size: 20, font: f })], spacing: { after: 80 } })]
+  })
+
+  m.set("experiences", () => {
+    if (!isVisible(ss, "experiences") || cv.experiences.length === 0) return []
+    return [atsSectionTitle("Expériences professionnelles", f), ...cv.experiences.flatMap((e) => expBlock3(e, f))]
+  })
+
+  m.set("education", () => {
+    if (!isVisible(ss, "education") || cv.educations.length === 0) return []
+    const paras: Paragraph[] = [atsSectionTitle("Formation", f)]
+    for (const edu of cv.educations) {
+      paras.push(new Paragraph({ children: [new TextRun({ text: edu.degree, size: 22, bold: true, font: f })], spacing: { before: 100, after: 30 } }))
+      paras.push(new Paragraph({ children: [new TextRun({ text: `${edu.school}${edu.endYear ? ` | ${edu.endYear}` : ""}${edu.honors ? ` | ${edu.honors}` : ""}`, size: 20, font: f })], spacing: { after: 80 } }))
+    }
+    return paras
+  })
+
+  m.set("languages", () => {
+    if (!isVisible(ss, "languages") || cv.languages.length === 0) return []
+    return [
+      atsSectionTitle("Langues", f),
+      new Paragraph({ children: [new TextRun({ text: cv.languages.map((l) => `${l.language}${l.cefrLevel ? ` (${l.cefrLevel})` : ""}`).join(" | "), size: 20, font: f })], spacing: { after: 200 } }),
+    ]
+  })
+
+  m.set("certifications", () => {
+    if (!isVisible(ss, "certifications") || cv.certifications.length === 0) return []
+    const paras: Paragraph[] = [atsSectionTitle("Certifications", f)]
+    for (const cert of cv.certifications) {
+      paras.push(new Paragraph({ children: [new TextRun({ text: `${cert.name}${cert.issuer ? ` — ${cert.issuer}` : ""}${cert.issueDate ? ` (${cert.issueDate})` : ""}`, size: 20, font: f })], spacing: { before: 60, after: 40 } }))
+    }
+    return paras
+  })
+
+  return m
+}
+
+// ─── Templates ────────────────────────────────────────────────────────────────
+function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null): Document {
+  const c = hex(b.primaryColor)
   const f = b.fontFamily
   const children: Paragraph[] = []
-  const show = (id: string) => !ss || !ss[id] || ss[id].visible
 
-  children.push(new Paragraph({
-    children: [new TextRun({ text: fullName(cv), size: 44, bold: true, font: f })],
-    spacing: { after: 60 },
-  }))
-  if (cv.contact?.headline) {
+  if (logo) children.push(logoParagraph(logo))
+
+  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv), size: 52, bold: true, color: c, font: f })], spacing: { after: 60 } }))
+  if (cv.contact?.headline) children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.headline, size: 24, font: f, color: "444444", italics: true })], spacing: { after: 80 } }))
+  const cl = contactLine(cv)
+  if (cl) children.push(new Paragraph({ children: [new TextRun({ text: cl, size: 20, font: f, color: "555555" })], spacing: { after: 240 } }))
+  children.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: c } }, spacing: { after: 240 } }))
+
+  const sections = buildSections1(cv, ss, c, f)
+  for (const id of orderedSectionIds(ss)) {
+    children.push(...(sections.get(id)?.() ?? []))
+  }
+
+  children.push(new Paragraph({ children: [new TextRun({ text: b.companyName, size: 16, color: "AAAAAA", font: f })], alignment: AlignmentType.RIGHT, spacing: { before: 400 } }))
+
+  return new Document({ sections: [{ properties: { page: { margin: { top: 860, right: 860, bottom: 860, left: 860 } } }, children }] })
+}
+
+function template2(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null): Document {
+  const c = hex(b.primaryColor)
+  const f = b.fontFamily
+  const children: Paragraph[] = []
+
+  if (logo) children.push(logoParagraph(logo))
+
+  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv).toUpperCase(), size: 64, bold: true, color: c, font: f })], spacing: { after: 60 } }))
+  if (cv.contact?.headline) children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.headline, size: 24, font: f, italics: true, color: "555555" })], spacing: { after: 100 } }))
+  children.push(new Paragraph({ border: { bottom: { style: BorderStyle.THICK, size: 16, color: c } }, spacing: { after: 160 } }))
+  const contactParts = [cv.contact?.email, cv.contact?.phone, cv.contact?.address].filter(Boolean)
+  if (contactParts.length > 0) {
     children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.headline, size: 22, font: f })],
-      spacing: { after: 60 },
-    }))
-  }
-  const contact = contactLine(cv)
-  if (contact) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: contact, size: 20, font: f })],
-      spacing: { after: 200 },
-    }))
-  }
-
-  if (show("profile") && cv.contact?.profileText) {
-    children.push(atsSectionTitle("Profil professionnel", f))
-    children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })],
-      spacing: { after: 200 },
-    }))
-  }
-
-  const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
-  if (show("skills") && technical.length > 0) {
-    children.push(atsSectionTitle("Compétences techniques", f))
-    children.push(new Paragraph({
-      children: [new TextRun({ text: technical.map((s) => s.name).join(", "), size: 20, font: f })],
-      spacing: { after: 60 },
-    }))
-    const soft = cv.skills.filter((s) => s.category === "soft")
-    if (show("soft_skills") && soft.length > 0) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: `Soft skills : ${soft.map((s) => s.name).join(", ")}`, size: 20, font: f })],
-        spacing: { after: 200 },
-      }))
-    }
-  }
-
-  if (show("experiences") && cv.experiences.length > 0) {
-    children.push(atsSectionTitle("Expériences professionnelles", f))
-    for (const exp of cv.experiences) {
-      children.push(...expBlock3(exp, f))
-    }
-  }
-
-  if (show("education") && cv.educations.length > 0) {
-    children.push(atsSectionTitle("Formation", f))
-    for (const edu of cv.educations) {
-      children.push(new Paragraph({
-        children: [new TextRun({ text: edu.degree, size: 22, bold: true, font: f })],
-        spacing: { before: 100, after: 30 },
-      }))
-      children.push(new Paragraph({
-        children: [new TextRun({
-          text: `${edu.school}${edu.endYear ? ` | ${edu.endYear}` : ""}${edu.honors ? ` | ${edu.honors}` : ""}`,
-          size: 20, font: f,
-        })],
-        spacing: { after: 80 },
-      }))
-    }
-  }
-
-  if (show("languages") && cv.languages.length > 0) {
-    children.push(atsSectionTitle("Langues", f))
-    children.push(new Paragraph({
-      children: [new TextRun({
-        text: cv.languages.map((l) => `${l.language}${l.cefrLevel ? ` (${l.cefrLevel})` : ""}`).join(" | "),
-        size: 20, font: f,
-      })],
-      spacing: { after: 200 },
+      children: contactParts.flatMap((part, i) => [...(i > 0 ? [new TextRun({ text: "  ·  ", size: 20, color: c, font: f, bold: true })] : []), new TextRun({ text: part!, size: 20, font: f })]),
+      spacing: { after: 320 },
     }))
   }
 
-  if (show("certifications") && cv.certifications.length > 0) {
-    children.push(atsSectionTitle("Certifications", f))
-    for (const cert of cv.certifications) {
-      children.push(new Paragraph({
-        children: [new TextRun({
-          text: `${cert.name}${cert.issuer ? ` — ${cert.issuer}` : ""}${cert.issueDate ? ` (${cert.issueDate})` : ""}`,
-          size: 20, font: f,
-        })],
-        spacing: { before: 60, after: 40 },
-      }))
-    }
+  const sections = buildSections2(cv, ss, c, f)
+  for (const id of orderedSectionIds(ss)) {
+    children.push(...(sections.get(id)?.() ?? []))
   }
 
-  return new Document({
-    sections: [{ properties: { page: { margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } }, children }],
-  })
+  children.push(new Paragraph({ children: [new TextRun({ text: b.companyName, size: 16, color: "AAAAAA", font: f })], alignment: AlignmentType.RIGHT, spacing: { before: 400 } }))
+
+  return new Document({ sections: [{ properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } }, children }] })
+}
+
+function template3(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null): Document {
+  const f = b.fontFamily
+  const children: Paragraph[] = []
+
+  if (logo) children.push(logoParagraph(logo))
+
+  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv), size: 44, bold: true, font: f })], spacing: { after: 60 } }))
+  if (cv.contact?.headline) children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.headline, size: 22, font: f })], spacing: { after: 60 } }))
+  const cl = contactLine(cv)
+  if (cl) children.push(new Paragraph({ children: [new TextRun({ text: cl, size: 20, font: f })], spacing: { after: 200 } }))
+
+  const sections = buildSections3(cv, ss, f)
+  for (const id of orderedSectionIds(ss)) {
+    children.push(...(sections.get(id)?.() ?? []))
+  }
+
+  return new Document({ sections: [{ properties: { page: { margin: { top: 1000, right: 1000, bottom: 1000, left: 1000 } } }, children }] })
 }
 
 // ─── Blocs expérience ────────────────────────────────────────────────────────
-function expBlock1(exp: CvData["experiences"][0], c: string, f: string): Paragraph[] {
-  const paras: Paragraph[] = []
+type Exp = CvData["experiences"][0]
+
+function expBlock1(exp: Exp, c: string, f: string): Paragraph[] {
   const dateStr = exp.endDate ? `${exp.startDate} — ${exp.endDate}` : exp.isCurrent ? `${exp.startDate} — Présent` : exp.startDate
-  paras.push(new Paragraph({
-    children: [
-      new TextRun({ text: exp.title, size: 22, bold: true, font: f }),
-      new TextRun({ text: `\t${dateStr}`, size: 20, font: f, color: "666666" }),
-    ],
-    tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }],
-    spacing: { before: 200, after: 40 },
-  }))
   const companyStr = exp.client ? `${exp.company} (Client : ${exp.client})` : exp.company
-  paras.push(new Paragraph({
-    children: [new TextRun({ text: companyStr, size: 20, font: f, color: c, italics: true })],
-    spacing: { after: 60 },
-  }))
+  const paras: Paragraph[] = [
+    new Paragraph({ children: [new TextRun({ text: exp.title, size: 22, bold: true, font: f }), new TextRun({ text: `\t${dateStr}`, size: 20, font: f, color: "666666" })], tabStops: [{ type: TabStopType.RIGHT, position: TabStopPosition.MAX }], spacing: { before: 200, after: 40 } }),
+    new Paragraph({ children: [new TextRun({ text: companyStr, size: 20, font: f, color: c, italics: true })], spacing: { after: 60 } }),
+  ]
   if (exp.context) paras.push(labeledLine("Contexte", exp.context, f))
   if (exp.achievements) paras.push(labeledLine("Réalisations", exp.achievements, f))
   if (exp.technologies) paras.push(labeledLine("Technologies", exp.technologies, f))
@@ -448,98 +411,65 @@ function expBlock1(exp: CvData["experiences"][0], c: string, f: string): Paragra
   return paras
 }
 
-function expBlock2(exp: CvData["experiences"][0], c: string, f: string): Paragraph[] {
-  const paras: Paragraph[] = []
+function expBlock2(exp: Exp, c: string, f: string): Paragraph[] {
   const companyStr = exp.client ? `${exp.company} · Client : ${exp.client}` : exp.company
   const dateStr = exp.endDate ? `${exp.startDate} — ${exp.endDate}` : exp.isCurrent ? `${exp.startDate} — Présent` : exp.startDate
-  paras.push(new Paragraph({
-    children: [
-      new TextRun({ text: `${exp.title}  `, size: 22, bold: true, font: f }),
-      new TextRun({ text: companyStr, size: 21, font: f, color: c }),
-    ],
-    spacing: { before: 240, after: 40 },
-    border: { left: { style: BorderStyle.SINGLE, size: 12, color: c, space: 8 } },
-    indent: { left: 120 },
-  }))
-  paras.push(new Paragraph({
-    children: [new TextRun({ text: dateStr, size: 19, font: f, color: "888888" })],
-    indent: { left: 120 },
-    spacing: { after: 60 },
-  }))
+  const paras: Paragraph[] = [
+    new Paragraph({ children: [new TextRun({ text: `${exp.title}  `, size: 22, bold: true, font: f }), new TextRun({ text: companyStr, size: 21, font: f, color: c })], spacing: { before: 240, after: 40 }, border: { left: { style: BorderStyle.SINGLE, size: 12, color: c, space: 8 } }, indent: { left: 120 } }),
+    new Paragraph({ children: [new TextRun({ text: dateStr, size: 19, font: f, color: "888888" })], indent: { left: 120 }, spacing: { after: 60 } }),
+  ]
   if (exp.context) paras.push(new Paragraph({ children: [new TextRun({ text: exp.context, size: 19, font: f })], indent: { left: 120 }, spacing: { after: 40 } }))
   if (exp.achievements) paras.push(new Paragraph({ children: [new TextRun({ text: exp.achievements, size: 19, font: f })], indent: { left: 120 }, spacing: { after: 40 } }))
-  if (exp.technologies) paras.push(new Paragraph({
-    children: [new TextRun({ text: "Stack : ", size: 18, bold: true, font: f, color: c }), new TextRun({ text: exp.technologies, size: 18, font: f })],
-    indent: { left: 120 }, spacing: { after: 60 },
-  }))
+  if (exp.technologies) paras.push(new Paragraph({ children: [new TextRun({ text: "Stack : ", size: 18, bold: true, font: f, color: c }), new TextRun({ text: exp.technologies, size: 18, font: f })], indent: { left: 120 }, spacing: { after: 60 } }))
   return paras
 }
 
-function expBlock3(exp: CvData["experiences"][0], f: string): Paragraph[] {
-  const paras: Paragraph[] = []
+function expBlock3(exp: Exp, f: string): Paragraph[] {
   const dateStr = exp.endDate ? `${exp.startDate} - ${exp.endDate}` : exp.isCurrent ? `${exp.startDate} - Présent` : exp.startDate
   const companyStr = exp.client ? `${exp.company} (Client : ${exp.client})` : exp.company
-  paras.push(new Paragraph({ children: [new TextRun({ text: exp.title, size: 22, bold: true, font: f })], spacing: { before: 180, after: 30 } }))
-  paras.push(new Paragraph({ children: [new TextRun({ text: `${companyStr} | ${dateStr}`, size: 20, font: f })], spacing: { after: 60 } }))
+  const paras: Paragraph[] = [
+    new Paragraph({ children: [new TextRun({ text: exp.title, size: 22, bold: true, font: f })], spacing: { before: 180, after: 30 } }),
+    new Paragraph({ children: [new TextRun({ text: `${companyStr} | ${dateStr}`, size: 20, font: f })], spacing: { after: 60 } }),
+  ]
   if (exp.context) paras.push(new Paragraph({ children: [new TextRun({ text: exp.context, size: 19, font: f })], spacing: { after: 40 } }))
   if (exp.achievements) paras.push(new Paragraph({ children: [new TextRun({ text: exp.achievements, size: 19, font: f })], spacing: { after: 40 } }))
   if (exp.technologies) paras.push(new Paragraph({ children: [new TextRun({ text: `Compétences : ${exp.technologies}`, size: 19, font: f })], spacing: { after: 60 } }))
   return paras
 }
 
-// ─── Helpers ─────────────────────────────────────────────────────────────────
+// ─── Helpers typographie ──────────────────────────────────────────────────────
 function sectionTitle(text: string, c: string, f: string): Paragraph {
-  return new Paragraph({
-    children: [new TextRun({ text, size: 22, bold: true, color: c, font: f })],
-    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: c } },
-    spacing: { before: 280, after: 120 },
-  })
+  return new Paragraph({ children: [new TextRun({ text, size: 22, bold: true, color: c, font: f })], border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: c } }, spacing: { before: 280, after: 120 } })
 }
 
 function sectionTitleModerne(text: string, c: string, f: string): Paragraph {
-  return new Paragraph({
-    children: [new TextRun({ text, size: 22, bold: true, color: c, font: f, underline: { type: UnderlineType.SINGLE, color: c } })],
-    spacing: { before: 320, after: 120 },
-  })
+  return new Paragraph({ children: [new TextRun({ text, size: 22, bold: true, color: c, font: f, underline: { type: UnderlineType.SINGLE, color: c } })], spacing: { before: 320, after: 120 } })
 }
 
 function atsSectionTitle(text: string, f: string): Paragraph {
-  return new Paragraph({
-    children: [new TextRun({ text, size: 24, bold: true, font: f })],
-    border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" } },
-    spacing: { before: 200, after: 100 },
-  })
+  return new Paragraph({ children: [new TextRun({ text, size: 24, bold: true, font: f })], border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: "000000" } }, spacing: { before: 200, after: 100 } })
 }
 
 function labeledLine(label: string, value: string, f: string): Paragraph {
-  return new Paragraph({
-    children: [
-      new TextRun({ text: `${label} : `, size: 19, bold: true, font: f }),
-      new TextRun({ text: value, size: 19, font: f }),
-    ],
-    spacing: { after: 40 },
-  })
+  return new Paragraph({ children: [new TextRun({ text: `${label} : `, size: 19, bold: true, font: f }), new TextRun({ text: value, size: 19, font: f })], spacing: { after: 40 } })
 }
 
 // ─── Export principal ─────────────────────────────────────────────────────────
-export type SectionSettings = Record<string, { visible: boolean; order: number }>
-
-export function isSectionVisible(settings: SectionSettings | null | undefined, id: string): boolean {
-  if (!settings || !settings[id]) return true
-  return settings[id].visible
-}
-
 export async function generateCvDocx(
   cv: CvData,
   branding: BrandingData,
   templateId: number,
-  sectionSettings?: SectionSettings | null
+  sectionSettings?: SectionSettings | null,
+  logoBuffer?: Buffer | null
 ): Promise<Buffer> {
   const ss = sectionSettings ?? null
+  const logo = logoBuffer ?? null
   let doc: Document
-  if (templateId === 2) doc = template2(cv, branding, ss)
-  else if (templateId === 3) doc = template3(cv, branding, ss)
-  else doc = template1(cv, branding, ss)
+
+  if (templateId === 2) doc = template2(cv, branding, ss, logo)
+  else if (templateId === 3) doc = template3(cv, branding, ss, logo)
+  else doc = template1(cv, branding, ss, logo)
+
   return Packer.toBuffer(doc) as Promise<Buffer>
 }
 

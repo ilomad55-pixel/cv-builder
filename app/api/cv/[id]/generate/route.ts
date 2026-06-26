@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateCvDocx } from "@/lib/docx/generator"
+import { downloadFile, extractKey } from "@/lib/storage"
 
 export async function POST(
   request: NextRequest,
@@ -22,7 +23,7 @@ export async function POST(
       educations: { orderBy: { order: "asc" } },
       languages: { where: { display: true }, orderBy: { order: "asc" } },
       certifications: { where: { display: true }, orderBy: { order: "asc" } },
-      company: { select: { name: true, primaryColor: true, fontFamily: true, sectionSettings: true } },
+      company: { select: { name: true, primaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true } },
     },
   })
 
@@ -36,6 +37,14 @@ export async function POST(
   const templateId = Number(body.templateId) || 1
   const sectionSettings = cv.company.sectionSettings as Record<string, { visible: boolean; order: number }> | null
 
+  // Télécharger le logo si disponible
+  let logoBuffer: Buffer | null = null
+  if (cv.company.logoUrl) {
+    try {
+      logoBuffer = await downloadFile(extractKey(cv.company.logoUrl))
+    } catch { /* ignore — génère sans logo si indisponible */ }
+  }
+
   const buffer = await generateCvDocx(
     {
       contact: cv.contact,
@@ -47,7 +56,8 @@ export async function POST(
     },
     { companyName: cv.company.name, primaryColor: cv.company.primaryColor, fontFamily: cv.company.fontFamily },
     templateId,
-    sectionSettings
+    sectionSettings,
+    logoBuffer
   )
 
   await prisma.cv.update({
