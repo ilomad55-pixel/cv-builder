@@ -86,10 +86,19 @@ function isVisible(ss: SectionSettings | null, id: string): boolean {
 }
 
 // ─── Logo helper ──────────────────────────────────────────────────────────────
+function detectImageType(buf: Buffer): "png" | "jpg" | "gif" | "bmp" {
+  if (buf[0] === 0x89 && buf[1] === 0x50) return "png"
+  if (buf[0] === 0xff && buf[1] === 0xd8) return "jpg"
+  if (buf[0] === 0x47 && buf[1] === 0x49) return "gif"
+  if (buf[0] === 0x42 && buf[1] === 0x4d) return "bmp"
+  return "png"
+}
+
 function logoParagraph(logoBuffer: Buffer): Paragraph {
   return new Paragraph({
     children: [
       new ImageRun({
+        type: detectImageType(logoBuffer),
         data: logoBuffer,
         transformation: { width: 130, height: 45 },
       }),

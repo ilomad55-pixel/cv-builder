@@ -50,7 +50,7 @@ export function LogoUpload({ currentUrl }: { currentUrl: string | null }) {
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
       <h2 className="text-sm font-semibold text-gray-700 mb-1">Logo entreprise</h2>
-      <p className="text-xs text-gray-400 mb-4">Affiché dans l'en-tête des CVs générés. PNG, JPG, WEBP ou SVG · max 2 Mo.</p>
+      <p className="text-xs text-gray-400 mb-4">Affiché dans l'en-tête des CVs générés. PNG, JPG ou GIF · max 2 Mo.</p>
 
       <div className="flex items-center gap-4">
         {/* Zone aperçu */}
@@ -91,7 +91,7 @@ export function LogoUpload({ currentUrl }: { currentUrl: string | null }) {
 
       {error && <p className="mt-2 text-xs text-red-500">{error}</p>}
 
-      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml"
+      <input ref={inputRef} type="file" accept="image/png,image/jpeg,image/gif,image/bmp"
         className="hidden" onChange={handleFile} />
     </div>
   )

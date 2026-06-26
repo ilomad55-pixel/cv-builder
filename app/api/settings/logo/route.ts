@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { uploadFile, deleteFile, extractKey } from "@/lib/storage"
 
-const ALLOWED = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/svg+xml"]
+const ALLOWED = ["image/png", "image/jpeg", "image/jpg", "image/gif", "image/bmp"]
 const MAX_BYTES = 2 * 1024 * 1024 // 2 MB
 
 export async function POST(request: NextRequest) {
