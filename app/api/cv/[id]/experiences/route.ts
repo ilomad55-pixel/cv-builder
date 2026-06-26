@@ -7,11 +7,14 @@ import { z } from "zod"
 const schema = z.object({
   title: z.string().default(""),
   company: z.string().default(""),
+  client: z.string().nullable().optional(),
   startDate: z.string().default(""),
-  endDate: z.string().optional(),
-  context: z.string().optional(),
-  achievements: z.string().optional(),
-  technologies: z.string().optional(),
+  endDate: z.string().nullable().optional(),
+  isCurrent: z.boolean().default(false),
+  context: z.string().nullable().optional(),
+  achievements: z.string().nullable().optional(),
+  technologies: z.string().nullable().optional(),
+  methods: z.string().nullable().optional(),
 })
 
 export async function POST(

@@ -67,10 +67,11 @@ function contactLine(cv: CvData): string {
 }
 
 // ─── Template 1 : Classique ──────────────────────────────────────────────────
-function template1(cv: CvData, b: BrandingData): Document {
+function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null): Document {
   const c = hex(b.primaryColor)
   const f = b.fontFamily
   const children: Paragraph[] = []
+  const show = (id: string) => !ss || !ss[id] || ss[id].visible
 
   // En-tête
   children.push(new Paragraph({
@@ -99,7 +100,7 @@ function template1(cv: CvData, b: BrandingData): Document {
   }))
 
   // Profil
-  if (cv.contact?.profileText) {
+  if (show("profile") && cv.contact?.profileText) {
     children.push(sectionTitle("PROFIL", c, f))
     children.push(new Paragraph({
       children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })],
@@ -108,7 +109,7 @@ function template1(cv: CvData, b: BrandingData): Document {
   }
 
   // Expériences
-  if (cv.experiences.length > 0) {
+  if (show("experiences") && cv.experiences.length > 0) {
     children.push(sectionTitle("EXPÉRIENCES PROFESSIONNELLES", c, f))
     for (const exp of cv.experiences) {
       children.push(...expBlock1(exp, c, f))
@@ -117,24 +118,24 @@ function template1(cv: CvData, b: BrandingData): Document {
 
   // Compétences
   const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
-  if (technical.length > 0) {
+  if (show("skills") && technical.length > 0) {
     children.push(sectionTitle("COMPÉTENCES TECHNIQUES", c, f))
     children.push(new Paragraph({
       children: [new TextRun({ text: technical.map((s) => s.name).join(" · "), size: 20, font: f })],
       spacing: { after: 180 },
     }))
     const soft = cv.skills.filter((s) => s.category === "soft")
-    if (soft.length > 0) {
+    if (show("soft_skills") && soft.length > 0) {
       children.push(labeledLine("Soft skills", soft.map((s) => s.name).join(", "), f))
     }
     const methods = cv.skills.filter((s) => s.category === "methodology")
-    if (methods.length > 0) {
+    if (show("methodologies") && methods.length > 0) {
       children.push(labeledLine("Méthodes", methods.map((s) => s.name).join(", "), f))
     }
   }
 
   // Formation
-  if (cv.educations.length > 0) {
+  if (show("education") && cv.educations.length > 0) {
     children.push(sectionTitle("FORMATION", c, f))
     for (const edu of cv.educations) {
       children.push(new Paragraph({
@@ -160,7 +161,7 @@ function template1(cv: CvData, b: BrandingData): Document {
   }
 
   // Langues
-  if (cv.languages.length > 0) {
+  if (show("languages") && cv.languages.length > 0) {
     children.push(sectionTitle("LANGUES", c, f))
     children.push(new Paragraph({
       children: cv.languages.flatMap((l, i) => [
@@ -173,7 +174,7 @@ function template1(cv: CvData, b: BrandingData): Document {
   }
 
   // Certifications
-  if (cv.certifications.length > 0) {
+  if (show("certifications") && cv.certifications.length > 0) {
     children.push(sectionTitle("CERTIFICATIONS", c, f))
     for (const cert of cv.certifications) {
       children.push(new Paragraph({
@@ -199,10 +200,11 @@ function template1(cv: CvData, b: BrandingData): Document {
 }
 
 // ─── Template 2 : Moderne ────────────────────────────────────────────────────
-function template2(cv: CvData, b: BrandingData): Document {
+function template2(cv: CvData, b: BrandingData, ss: SectionSettings | null): Document {
   const c = hex(b.primaryColor)
   const f = b.fontFamily
   const children: Paragraph[] = []
+  const show = (id: string) => !ss || !ss[id] || ss[id].visible
 
   children.push(new Paragraph({
     children: [new TextRun({ text: fullName(cv).toUpperCase(), size: 64, bold: true, color: c, font: f })],
@@ -232,7 +234,7 @@ function template2(cv: CvData, b: BrandingData): Document {
     }))
   }
 
-  if (cv.contact?.profileText) {
+  if (show("profile") && cv.contact?.profileText) {
     children.push(sectionTitleModerne("PROFIL", c, f))
     children.push(new Paragraph({
       children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })],
@@ -240,7 +242,7 @@ function template2(cv: CvData, b: BrandingData): Document {
     }))
   }
 
-  if (cv.experiences.length > 0) {
+  if (show("experiences") && cv.experiences.length > 0) {
     children.push(sectionTitleModerne("EXPÉRIENCES", c, f))
     for (const exp of cv.experiences) {
       children.push(...expBlock2(exp, c, f))
@@ -248,14 +250,14 @@ function template2(cv: CvData, b: BrandingData): Document {
   }
 
   const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
-  if (technical.length > 0) {
+  if (show("skills") && technical.length > 0) {
     children.push(sectionTitleModerne("COMPÉTENCES", c, f))
     children.push(new Paragraph({
       children: [new TextRun({ text: technical.map((s) => s.name).join("  ·  "), size: 20, font: f })],
       spacing: { after: 80 },
     }))
     const soft = cv.skills.filter((s) => s.category === "soft")
-    if (soft.length > 0) {
+    if (show("soft_skills") && soft.length > 0) {
       children.push(new Paragraph({
         children: [
           new TextRun({ text: "Soft : ", size: 19, bold: true, color: c, font: f }),
@@ -266,7 +268,7 @@ function template2(cv: CvData, b: BrandingData): Document {
     }
   }
 
-  if (cv.educations.length > 0) {
+  if (show("education") && cv.educations.length > 0) {
     children.push(sectionTitleModerne("FORMATION", c, f))
     for (const edu of cv.educations) {
       children.push(new Paragraph({
@@ -286,7 +288,7 @@ function template2(cv: CvData, b: BrandingData): Document {
     }
   }
 
-  if (cv.languages.length > 0) {
+  if (show("languages") && cv.languages.length > 0) {
     children.push(sectionTitleModerne("LANGUES", c, f))
     children.push(new Paragraph({
       children: cv.languages.flatMap((l, i) => [
@@ -297,7 +299,7 @@ function template2(cv: CvData, b: BrandingData): Document {
     }))
   }
 
-  if (cv.certifications.length > 0) {
+  if (show("certifications") && cv.certifications.length > 0) {
     children.push(sectionTitleModerne("CERTIFICATIONS", c, f))
     for (const cert of cv.certifications) {
       children.push(new Paragraph({
@@ -322,9 +324,10 @@ function template2(cv: CvData, b: BrandingData): Document {
 }
 
 // ─── Template 3 : ATS Optimisé ───────────────────────────────────────────────
-function template3(cv: CvData, b: BrandingData): Document {
+function template3(cv: CvData, b: BrandingData, ss: SectionSettings | null): Document {
   const f = b.fontFamily
   const children: Paragraph[] = []
+  const show = (id: string) => !ss || !ss[id] || ss[id].visible
 
   children.push(new Paragraph({
     children: [new TextRun({ text: fullName(cv), size: 44, bold: true, font: f })],
@@ -344,7 +347,7 @@ function template3(cv: CvData, b: BrandingData): Document {
     }))
   }
 
-  if (cv.contact?.profileText) {
+  if (show("profile") && cv.contact?.profileText) {
     children.push(atsSectionTitle("Profil professionnel", f))
     children.push(new Paragraph({
       children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })],
@@ -353,14 +356,14 @@ function template3(cv: CvData, b: BrandingData): Document {
   }
 
   const technical = cv.skills.filter((s) => s.category === "technical" || s.category === "tool")
-  if (technical.length > 0) {
+  if (show("skills") && technical.length > 0) {
     children.push(atsSectionTitle("Compétences techniques", f))
     children.push(new Paragraph({
       children: [new TextRun({ text: technical.map((s) => s.name).join(", "), size: 20, font: f })],
       spacing: { after: 60 },
     }))
     const soft = cv.skills.filter((s) => s.category === "soft")
-    if (soft.length > 0) {
+    if (show("soft_skills") && soft.length > 0) {
       children.push(new Paragraph({
         children: [new TextRun({ text: `Soft skills : ${soft.map((s) => s.name).join(", ")}`, size: 20, font: f })],
         spacing: { after: 200 },
@@ -368,14 +371,14 @@ function template3(cv: CvData, b: BrandingData): Document {
     }
   }
 
-  if (cv.experiences.length > 0) {
+  if (show("experiences") && cv.experiences.length > 0) {
     children.push(atsSectionTitle("Expériences professionnelles", f))
     for (const exp of cv.experiences) {
       children.push(...expBlock3(exp, f))
     }
   }
 
-  if (cv.educations.length > 0) {
+  if (show("education") && cv.educations.length > 0) {
     children.push(atsSectionTitle("Formation", f))
     for (const edu of cv.educations) {
       children.push(new Paragraph({
@@ -392,7 +395,7 @@ function template3(cv: CvData, b: BrandingData): Document {
     }
   }
 
-  if (cv.languages.length > 0) {
+  if (show("languages") && cv.languages.length > 0) {
     children.push(atsSectionTitle("Langues", f))
     children.push(new Paragraph({
       children: [new TextRun({
@@ -403,7 +406,7 @@ function template3(cv: CvData, b: BrandingData): Document {
     }))
   }
 
-  if (cv.certifications.length > 0) {
+  if (show("certifications") && cv.certifications.length > 0) {
     children.push(atsSectionTitle("Certifications", f))
     for (const cert of cv.certifications) {
       children.push(new Paragraph({
@@ -519,15 +522,24 @@ function labeledLine(label: string, value: string, f: string): Paragraph {
 }
 
 // ─── Export principal ─────────────────────────────────────────────────────────
+export type SectionSettings = Record<string, { visible: boolean; order: number }>
+
+export function isSectionVisible(settings: SectionSettings | null | undefined, id: string): boolean {
+  if (!settings || !settings[id]) return true
+  return settings[id].visible
+}
+
 export async function generateCvDocx(
   cv: CvData,
   branding: BrandingData,
-  templateId: number
+  templateId: number,
+  sectionSettings?: SectionSettings | null
 ): Promise<Buffer> {
+  const ss = sectionSettings ?? null
   let doc: Document
-  if (templateId === 2) doc = template2(cv, branding)
-  else if (templateId === 3) doc = template3(cv, branding)
-  else doc = template1(cv, branding)
+  if (templateId === 2) doc = template2(cv, branding, ss)
+  else if (templateId === 3) doc = template3(cv, branding, ss)
+  else doc = template1(cv, branding, ss)
   return Packer.toBuffer(doc) as Promise<Buffer>
 }
 

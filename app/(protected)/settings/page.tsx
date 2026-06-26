@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { BrandingForm } from "@/components/settings/BrandingForm"
 import { PasswordForm } from "@/components/settings/PasswordForm"
+import { SectionSettingsForm } from "@/components/settings/SectionSettingsForm"
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
@@ -10,7 +11,7 @@ export default async function SettingsPage() {
 
   const company = await prisma.company.findUnique({
     where: { id: session.user.id },
-    select: { name: true, primaryColor: true, fontFamily: true },
+    select: { name: true, primaryColor: true, fontFamily: true, sectionSettings: true },
   })
 
   if (!company) return null
@@ -19,9 +20,10 @@ export default async function SettingsPage() {
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Paramètres</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Charte graphique appliquée à tous vos CVs générés</p>
+        <p className="text-sm text-gray-500 mt-0.5">Charte graphique et configuration des CVs générés</p>
       </div>
       <BrandingForm initial={company} />
+      <SectionSettingsForm initial={company.sectionSettings as Record<string, { visible: boolean; order: number }> | null} />
       <PasswordForm />
     </div>
   )

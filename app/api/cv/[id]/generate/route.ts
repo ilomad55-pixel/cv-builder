@@ -22,7 +22,7 @@ export async function POST(
       educations: { orderBy: { order: "asc" } },
       languages: { where: { display: true }, orderBy: { order: "asc" } },
       certifications: { where: { display: true }, orderBy: { order: "asc" } },
-      company: { select: { name: true, primaryColor: true, fontFamily: true } },
+      company: { select: { name: true, primaryColor: true, fontFamily: true, sectionSettings: true } },
     },
   })
 
@@ -34,6 +34,7 @@ export async function POST(
 
   const body = await request.json().catch(() => ({}))
   const templateId = Number(body.templateId) || 1
+  const sectionSettings = cv.company.sectionSettings as Record<string, { visible: boolean; order: number }> | null
 
   const buffer = await generateCvDocx(
     {
@@ -45,10 +46,10 @@ export async function POST(
       certifications: cv.certifications,
     },
     { companyName: cv.company.name, primaryColor: cv.company.primaryColor, fontFamily: cv.company.fontFamily },
-    templateId
+    templateId,
+    sectionSettings
   )
 
-  // Mettre à jour le statut
   await prisma.cv.update({
     where: { id: params.id },
     data: { status: "GENERATED", templateId },

@@ -7,11 +7,14 @@ import { z } from "zod"
 const schema = z.object({
   title: z.string().optional(),
   company: z.string().optional(),
+  client: z.string().nullable().optional(),
   startDate: z.string().optional(),
   endDate: z.string().nullable().optional(),
+  isCurrent: z.boolean().optional(),
   context: z.string().nullable().optional(),
   achievements: z.string().nullable().optional(),
   technologies: z.string().nullable().optional(),
+  methods: z.string().nullable().optional(),
 })
 
 async function getExperience(cvId: string, expId: string, companyId: string) {

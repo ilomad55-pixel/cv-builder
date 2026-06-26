@@ -6,54 +6,43 @@ import { Experience } from "@prisma/client"
 import { Button } from "@/components/ui/Button"
 import { Input } from "@/components/ui/Input"
 
-interface ExperienceListProps {
-  experiences: Experience[]
-  cvId: string
-}
-
 type ExpForm = {
   title: string
   company: string
+  client: string
   startDate: string
   endDate: string
+  isCurrent: boolean
   context: string
   achievements: string
   technologies: string
+  methods: string
 }
 
 const emptyForm = (): ExpForm => ({
-  title: "",
-  company: "",
-  startDate: "",
-  endDate: "",
-  context: "",
-  achievements: "",
-  technologies: "",
+  title: "", company: "", client: "", startDate: "", endDate: "",
+  isCurrent: false, context: "", achievements: "", technologies: "", methods: "",
 })
 
 function expToForm(exp: Experience): ExpForm {
   return {
     title: exp.title ?? "",
     company: exp.company ?? "",
+    client: exp.client ?? "",
     startDate: exp.startDate ?? "",
     endDate: exp.endDate ?? "",
+    isCurrent: exp.isCurrent ?? false,
     context: exp.context ?? "",
     achievements: exp.achievements ?? "",
     technologies: exp.technologies ?? "",
+    methods: exp.methods ?? "",
   }
 }
 
-function ExperienceForm({
-  form,
-  onChange,
-  onSave,
-  onCancel,
-  loading,
-  error,
-  label,
-}: {
+function ExperienceForm({ form, onChange, onCheck, onSave, onCancel, loading, error, label }: {
   form: ExpForm
   onChange: (field: keyof ExpForm) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => void
+  onCheck: (field: keyof ExpForm) => (e: React.ChangeEvent<HTMLInputElement>) => void
   onSave: () => void
   onCancel: () => void
   loading: boolean
@@ -65,47 +54,41 @@ function ExperienceForm({
       <div className="flex items-center justify-between mb-4">
         <p className="text-sm font-semibold text-gray-700">{label}</p>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={onCancel} className="text-xs px-3 py-1.5">
-            Annuler
-          </Button>
-          <Button loading={loading} onClick={onSave} className="text-xs px-3 py-1.5">
-            Sauvegarder
-          </Button>
+          <Button variant="secondary" onClick={onCancel} className="text-xs px-3 py-1.5">Annuler</Button>
+          <Button loading={loading} onClick={onSave} className="text-xs px-3 py-1.5">Sauvegarder</Button>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
         <Input label="Poste / Titre" value={form.title} onChange={onChange("title")} />
-        <Input label="Entreprise" value={form.company} onChange={onChange("company")} />
-        <Input label="Date de début" placeholder="ex: Jan 2022" value={form.startDate} onChange={onChange("startDate")} />
-        <Input label="Date de fin" placeholder="ex: Dec 2023 (vide = poste actuel)" value={form.endDate} onChange={onChange("endDate")} />
-        <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Contexte</label>
-          <textarea
-            rows={2}
-            value={form.context}
-            onChange={onChange("context")}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
-              focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
-          />
+        <Input label="Entreprise (employeur)" value={form.company} onChange={onChange("company")} />
+        <Input label="Client final (si ESN)" placeholder="ex: BNP Paribas" value={form.client} onChange={onChange("client")} />
+        <div>
+          <Input label="Date de début" placeholder="ex: Jan 2022" value={form.startDate} onChange={onChange("startDate")} />
+        </div>
+        <div>
+          <Input label="Date de fin" placeholder="Vide si poste actuel" value={form.endDate} onChange={onChange("endDate")} disabled={form.isCurrent} />
+        </div>
+        <div className="flex items-center gap-2 pt-5">
+          <input type="checkbox" id="isCurrent" checked={form.isCurrent} onChange={onCheck("isCurrent")}
+            className="w-4 h-4 text-brand-600 rounded border-gray-300 focus:ring-brand-500" />
+          <label htmlFor="isCurrent" className="text-sm text-gray-700 cursor-pointer">Poste actuel</label>
         </div>
         <div className="col-span-2">
-          <label className="block text-sm font-medium text-gray-700 mb-1">Réalisations</label>
-          <textarea
-            rows={3}
-            value={form.achievements}
-            onChange={onChange("achievements")}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white
-              focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent resize-none"
-          />
+          <label className="block text-sm font-medium text-gray-700 mb-1">Contexte / Description</label>
+          <textarea rows={2} value={form.context} onChange={onChange("context")}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
         </div>
         <div className="col-span-2">
-          <Input
-            label="Technologies (séparées par des virgules)"
-            placeholder="ex: React, Node.js, PostgreSQL"
-            value={form.technologies}
-            onChange={onChange("technologies")}
-          />
+          <label className="block text-sm font-medium text-gray-700 mb-1">Réalisations / Résultats</label>
+          <textarea rows={3} value={form.achievements} onChange={onChange("achievements")}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+        </div>
+        <div className="col-span-2">
+          <Input label="Technologies (liste CSV)" placeholder="ex: React, Node.js, Docker" value={form.technologies} onChange={onChange("technologies")} />
+        </div>
+        <div className="col-span-2">
+          <Input label="Méthodes (Agile, Scrum…)" placeholder="ex: Scrum, TDD, CI/CD" value={form.methods} onChange={onChange("methods")} />
         </div>
       </div>
 
@@ -114,7 +97,7 @@ function ExperienceForm({
   )
 }
 
-export function ExperienceList({ experiences, cvId }: ExperienceListProps) {
+export function ExperienceList({ experiences, cvId }: { experiences: Experience[]; cvId: string }) {
   const router = useRouter()
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<ExpForm>(emptyForm())
@@ -123,19 +106,13 @@ export function ExperienceList({ experiences, cvId }: ExperienceListProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [error, setError] = useState("")
 
-  const setEdit = (field: keyof ExpForm) =>
+  const mkChange = (setter: React.Dispatch<React.SetStateAction<ExpForm>>, field: keyof ExpForm) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setEditForm((f) => ({ ...f, [field]: e.target.value }))
+      setter((f) => ({ ...f, [field]: e.target.value }))
 
-  const setAdd = (field: keyof ExpForm) =>
-    (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setAddForm((f) => ({ ...f, [field]: e.target.value }))
-
-  const startEdit = (exp: Experience) => {
-    setEditingId(exp.id)
-    setEditForm(expToForm(exp))
-    setError("")
-  }
+  const mkCheck = (setter: React.Dispatch<React.SetStateAction<ExpForm>>, field: keyof ExpForm) =>
+    (e: React.ChangeEvent<HTMLInputElement>) =>
+      setter((f) => ({ ...f, [field]: e.target.checked }))
 
   const saveEdit = async () => {
     if (!editingId) return
@@ -144,15 +121,16 @@ export function ExperienceList({ experiences, cvId }: ExperienceListProps) {
     const res = await fetch(`/api/cv/${cvId}/experiences/${editingId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(editForm),
+      body: JSON.stringify({
+        ...editForm,
+        client: editForm.client || null,
+        endDate: editForm.isCurrent ? null : (editForm.endDate || null),
+        methods: editForm.methods || null,
+      }),
     })
     setLoadingId(null)
-    if (res.ok) {
-      setEditingId(null)
-      router.refresh()
-    } else {
-      setError("Erreur lors de la sauvegarde")
-    }
+    if (res.ok) { setEditingId(null); router.refresh() }
+    else setError("Erreur lors de la sauvegarde")
   }
 
   const deleteExp = async (expId: string) => {
@@ -169,30 +147,27 @@ export function ExperienceList({ experiences, cvId }: ExperienceListProps) {
     const res = await fetch(`/api/cv/${cvId}/experiences`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(addForm),
+      body: JSON.stringify({
+        ...addForm,
+        client: addForm.client || null,
+        endDate: addForm.isCurrent ? null : (addForm.endDate || null),
+        methods: addForm.methods || null,
+      }),
     })
     setLoadingId(null)
-    if (res.ok) {
-      setAdding(false)
-      setAddForm(emptyForm())
-      router.refresh()
-    } else {
-      setError("Erreur lors de l'ajout")
-    }
+    if (res.ok) { setAdding(false); setAddForm(emptyForm()); router.refresh() }
+    else setError("Erreur lors de l'ajout")
   }
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-sm font-semibold text-gray-700">
-          Expériences{" "}
-          <span className="text-gray-400 font-normal">({experiences.length})</span>
+          Expériences <span className="text-gray-400 font-normal">({experiences.length})</span>
         </h2>
         {!adding && (
-          <button
-            onClick={() => { setAdding(true); setEditingId(null); setError("") }}
-            className="text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors"
-          >
+          <button onClick={() => { setAdding(true); setEditingId(null); setError("") }}
+            className="text-xs text-brand-600 hover:text-brand-700 font-medium transition-colors">
             + Ajouter
           </button>
         )}
@@ -205,42 +180,33 @@ export function ExperienceList({ experiences, cvId }: ExperienceListProps) {
 
         {experiences.map((exp) =>
           editingId === exp.id ? (
-            <ExperienceForm
-              key={exp.id}
-              form={editForm}
-              onChange={setEdit}
-              onSave={saveEdit}
-              onCancel={() => { setEditingId(null); setError("") }}
-              loading={loadingId === exp.id}
-              error={error}
-              label="Modifier l'expérience"
-            />
+            <ExperienceForm key={exp.id} form={editForm}
+              onChange={(f) => mkChange(setEditForm, f)}
+              onCheck={(f) => mkCheck(setEditForm, f)}
+              onSave={saveEdit} onCancel={() => { setEditingId(null); setError("") }}
+              loading={loadingId === exp.id} error={error} label="Modifier l'expérience" />
           ) : (
             <div key={exp.id} className="border-l-2 border-brand-200 pl-4 group">
               <div className="flex items-start justify-between gap-2 mb-1">
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900 text-sm">{exp.title || "Sans titre"}</p>
-                  <p className="text-sm text-brand-600">{exp.company}</p>
+                  <p className="text-sm text-brand-600">
+                    {exp.company}
+                    {exp.client ? <span className="text-gray-500 text-xs"> · Client : {exp.client}</span> : null}
+                  </p>
                 </div>
                 <div className="flex items-center gap-3 shrink-0">
                   <p className="text-xs text-gray-500 whitespace-nowrap">
-                    {exp.startDate}{exp.endDate ? ` — ${exp.endDate}` : ""}
+                    {exp.startDate}
+                    {exp.isCurrent ? " — Présent" : exp.endDate ? ` — ${exp.endDate}` : ""}
+                    {exp.isCurrent && <span className="ml-1 text-green-500">●</span>}
                   </p>
                   <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={() => startEdit(exp)}
+                    <button onClick={() => { setEditingId(exp.id); setEditForm(expToForm(exp)) }}
                       disabled={!!loadingId}
-                      className="text-xs text-gray-400 hover:text-brand-600 transition-colors px-1 py-0.5"
-                      title="Modifier"
-                    >
-                      Éditer
-                    </button>
-                    <button
-                      onClick={() => deleteExp(exp.id)}
-                      disabled={loadingId === exp.id}
-                      className="text-xs text-gray-400 hover:text-red-500 transition-colors px-1 py-0.5"
-                      title="Supprimer"
-                    >
+                      className="text-xs text-gray-400 hover:text-brand-600 px-1">Éditer</button>
+                    <button onClick={() => deleteExp(exp.id)} disabled={loadingId === exp.id}
+                      className="text-xs text-gray-400 hover:text-red-500 px-1">
                       {loadingId === exp.id ? "…" : "Supprimer"}
                     </button>
                   </div>
@@ -259,15 +225,13 @@ export function ExperienceList({ experiences, cvId }: ExperienceListProps) {
                   <p className="text-xs text-gray-600 leading-relaxed">{exp.achievements}</p>
                 </div>
               )}
-              {exp.technologies && (
+              {(exp.technologies || exp.methods) && (
                 <div className="mt-2 flex flex-wrap gap-1">
-                  {exp.technologies.split(",").map((tech) => (
-                    <span
-                      key={tech.trim()}
-                      className="inline-flex px-2 py-0.5 bg-gray-100 text-gray-600 text-xs rounded-md"
-                    >
-                      {tech.trim()}
-                    </span>
+                  {exp.technologies?.split(",").map((t) => (
+                    <span key={t.trim()} className="inline-flex px-2 py-0.5 bg-blue-50 text-blue-700 text-xs rounded-md">{t.trim()}</span>
+                  ))}
+                  {exp.methods?.split(",").map((m) => (
+                    <span key={m.trim()} className="inline-flex px-2 py-0.5 bg-teal-50 text-teal-700 text-xs rounded-md">{m.trim()}</span>
                   ))}
                 </div>
               )}
@@ -276,15 +240,11 @@ export function ExperienceList({ experiences, cvId }: ExperienceListProps) {
         )}
 
         {adding && (
-          <ExperienceForm
-            form={addForm}
-            onChange={setAdd}
-            onSave={saveAdd}
-            onCancel={() => { setAdding(false); setError("") }}
-            loading={loadingId === "new"}
-            error={error}
-            label="Nouvelle expérience"
-          />
+          <ExperienceForm form={addForm}
+            onChange={(f) => mkChange(setAddForm, f)}
+            onCheck={(f) => mkCheck(setAddForm, f)}
+            onSave={saveAdd} onCancel={() => { setAdding(false); setError("") }}
+            loading={loadingId === "new"} error={error} label="Nouvelle expérience" />
         )}
       </div>
     </div>

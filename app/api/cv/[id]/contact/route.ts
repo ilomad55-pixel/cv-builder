@@ -7,9 +7,14 @@ import { z } from "zod"
 const schema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
+  headline: z.string().nullable().optional(),
+  seniority: z.string().nullable().optional(),
+  yearsOfExperience: z.string().nullable().optional(),
   email: z.string().optional(),
   phone: z.string().optional(),
   address: z.string().optional(),
+  linkedin: z.string().nullable().optional(),
+  github: z.string().nullable().optional(),
   profileText: z.string().optional(),
 })
 
