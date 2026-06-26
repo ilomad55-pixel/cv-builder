@@ -56,6 +56,11 @@ export async function POST(
   }
 
   // ─── Post-traitement nom : rattraper cas IA manqués ──────────────────────
+  const toTitleCase = (s: string) =>
+    s.split(/(\s+|-)/).map(token =>
+      /[a-zA-ZÀ-ÿ]/.test(token) ? token.charAt(0).toUpperCase() + token.slice(1).toLowerCase() : token
+    ).join("")
+
   let firstName = (parsed.identity.firstName ?? "").trim()
   let lastName = (parsed.identity.lastName ?? "").trim()
 
@@ -76,6 +81,10 @@ export async function POST(
       lastName = parts[0] ?? ""
     }
   }
+
+  // Normalisation casse : si token entièrement en majuscules → Title Case
+  if (firstName && firstName === firstName.toUpperCase()) firstName = toTitleCase(firstName)
+  if (lastName && lastName === lastName.toUpperCase()) lastName = toTitleCase(lastName)
 
   // ─── Toutes les écritures en une transaction ──────────────────────────────
   await prisma.$transaction(async (tx) => {

@@ -119,10 +119,16 @@ RÈGLES ABSOLUES :
 10. methods : méthodologies utilisées dans le poste (Agile, Scrum, etc.)
 11. NOM DU CANDIDAT — règles strictes :
     - Le nom est TOUJOURS présent dans un CV. Cherche-le en en-tête, dans les coordonnées, dans l'email si nécessaire.
-    - Si le nom est en MAJUSCULES (ex: "DUPONT JEAN-MARIE"), convertis en format Titre : lastName="Dupont", firstName="Jean-Marie"
-    - Si tu vois "NOM Prénom" (format Malgache/Africain : nom de famille EN PREMIER), inverser : lastName=premier token, firstName=reste
-    - Si tu ne peux pas distinguer prénom et nom, mets le prénom probable dans firstName et le reste dans lastName — ne laisse JAMAIS les deux à null si un nom est visible
+    - Si le nom est en MAJUSCULES (ex: "DUPONT JEAN-MARIE" ou "Olivier MORA"), convertis chaque token en format Titre : "MORA" → "Mora", "JEAN-MARIE" → "Jean-Marie"
+    - Si tu vois "NOM Prénom" (format Malgache/Africain : nom de famille EN PREMIER EN MAJUSCULES, suivi du prénom), inverser : lastName=premier token (converti en Titre), firstName=reste
+    - Si tu vois "Prénom NOM" (prénom normal puis nom en MAJUSCULES comme "Olivier MORA"), c'est firstName="Olivier", lastName="Mora"
+    - Ne laisse JAMAIS les deux à null si un nom est visible dans le document
     - Si vraiment aucun nom trouvé, note-le dans parsing.warnings
+12. TITRE PROFESSIONNEL (headline) — règles strictes :
+    - Extrait le titre exactement tel qu'il apparaît dans le CV, sans modifier ni tronquer
+    - NE RETIRE JAMAIS un mot du titre pour l'affecter à seniority — seniority est inféré séparément et n'affecte pas headline
+    - Exemple : "Chef de projet confirmé" → headline="Chef de projet confirmé", seniority="confirmed"
+    - Si aucun titre explicite, infère-en un sobre depuis le premier poste ou laisse null
 
 SCHÉMA JSON ATTENDU (retourne EXACTEMENT cette structure) :
 {
