@@ -81,8 +81,10 @@ function ExperienceForm({ form, onChange, onCheck, onSave, onCancel, loading, er
         </div>
         <div className="col-span-2">
           <label className="block text-sm font-medium text-gray-700 mb-1">Réalisations / Résultats</label>
-          <textarea rows={3} value={form.achievements} onChange={onChange("achievements")}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none" />
+          <p className="text-xs text-gray-400 mb-1">Une réalisation par ligne — chaque ligne devient une puce</p>
+          <textarea rows={6} value={form.achievements} onChange={onChange("achievements")}
+            placeholder={"Assurer le suivi des incidents bloquants.\nAccompagner l'adaptation au nouveau SI.\nRédiger les spécifications fonctionnelles."}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand-500 resize-none font-mono" />
         </div>
         <div className="col-span-2">
           <Input label="Technologies (liste CSV)" placeholder="ex: React, Node.js, Docker" value={form.technologies} onChange={onChange("technologies")} />
@@ -221,8 +223,15 @@ export function ExperienceList({ experiences, cvId }: { experiences: Experience[
               )}
               {exp.achievements && (
                 <div className="mt-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-0.5">Réalisations</p>
-                  <p className="text-xs text-gray-600 leading-relaxed whitespace-pre-line">{exp.achievements}</p>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Réalisations</p>
+                  <ul className="space-y-0.5">
+                    {exp.achievements.split("\n").filter(l => l.trim()).map((line, i) => (
+                      <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600 leading-relaxed">
+                        <span className="mt-1 shrink-0 w-1.5 h-1.5 rounded-full bg-brand-400" />
+                        <span>{line.trim()}</span>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
               {(exp.technologies || exp.methods) && (
