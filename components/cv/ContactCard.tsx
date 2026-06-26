@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Contact } from "@prisma/client"
 import { Input } from "@/components/ui/Input"
@@ -36,6 +36,113 @@ type Form = {
   profileText: string
 }
 
+// ─── Photo Upload Widget ──────────────────────────────────────────────────────
+function PhotoUpload({ cvId, initialUrl }: { cvId: string; initialUrl: string | null }) {
+  const router = useRouter()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [photoUrl, setPhotoUrl] = useState<string | null>(initialUrl)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState("")
+
+  const handleFile = async (file: File) => {
+    if (!["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/bmp"].includes(file.type)) {
+      setError("Format non supporté (PNG, JPG, WEBP)")
+      return
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setError("Fichier trop lourd (max 3 Mo)")
+      return
+    }
+    setError("")
+    setUploading(true)
+    const form = new FormData()
+    form.append("file", file)
+    const res = await fetch(`/api/cv/${cvId}/photo`, { method: "POST", body: form })
+    setUploading(false)
+    if (res.ok) {
+      const { photoUrl: url } = await res.json()
+      setPhotoUrl(url)
+      router.refresh()
+    } else {
+      const { error: msg } = await res.json().catch(() => ({}))
+      setError(msg ?? "Erreur lors de l'upload")
+    }
+  }
+
+  const handleDelete = async () => {
+    setUploading(true)
+    await fetch(`/api/cv/${cvId}/photo`, { method: "DELETE" })
+    setUploading(false)
+    setPhotoUrl(null)
+    router.refresh()
+  }
+
+  return (
+    <div className="flex flex-col items-center gap-2">
+      <div
+        onClick={() => !uploading && inputRef.current?.click()}
+        className="relative w-20 h-20 rounded-full overflow-hidden border-2 border-dashed border-gray-300 bg-gray-50
+          hover:border-brand-400 hover:bg-brand-50 transition-colors cursor-pointer group"
+        title="Cliquer pour changer la photo"
+      >
+        {photoUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={photoUrl} alt="Photo" className="w-full h-full object-cover" />
+        ) : (
+          <div className="flex flex-col items-center justify-center w-full h-full text-gray-400 group-hover:text-brand-500">
+            <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
+                d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+            </svg>
+            <span className="text-[10px] mt-0.5 leading-tight text-center px-1">Photo</span>
+          </div>
+        )}
+        {uploading && (
+          <div className="absolute inset-0 bg-white/70 flex items-center justify-center">
+            <svg className="animate-spin w-5 h-5 text-brand-600" fill="none" viewBox="0 0 24 24">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+            </svg>
+          </div>
+        )}
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="text-xs text-brand-600 hover:text-brand-700 font-medium disabled:opacity-50"
+        >
+          {photoUrl ? "Changer" : "Ajouter"}
+        </button>
+        {photoUrl && (
+          <>
+            <span className="text-gray-300">·</span>
+            <button
+              onClick={handleDelete}
+              disabled={uploading}
+              className="text-xs text-red-500 hover:text-red-600 font-medium disabled:opacity-50"
+            >
+              Supprimer
+            </button>
+          </>
+        )}
+      </div>
+
+      {error && <p className="text-xs text-red-500 text-center max-w-[100px]">{error}</p>}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/png,image/jpeg,image/jpg,image/webp,image/gif,image/bmp"
+        className="hidden"
+        onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = "" }}
+      />
+    </div>
+  )
+}
+
+// ─── Composant principal ──────────────────────────────────────────────────────
 export function ContactCard({ contact, cvId }: { contact: Contact; cvId: string }) {
   const router = useRouter()
   const [editing, setEditing] = useState(false)
@@ -140,6 +247,7 @@ export function ContactCard({ contact, cvId }: { contact: Contact; cvId: string 
   }
 
   const fullName = [contact.firstName, contact.lastName].filter(Boolean).join(" ")
+  const photoUrl = (contact as Contact & { photoUrl?: string | null }).photoUrl ?? null
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -151,64 +259,72 @@ export function ContactCard({ contact, cvId }: { contact: Contact; cvId: string 
         </button>
       </div>
 
-      <div className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            {fullName && <p className="text-lg font-bold text-gray-900">{fullName}</p>}
-            {contact.headline && <p className="text-sm text-brand-600 mt-0.5">{contact.headline}</p>}
-          </div>
-          <div className="flex flex-col items-end gap-1 shrink-0">
-            {contact.seniority && (
-              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SENIORITY_COLORS[contact.seniority] ?? "bg-gray-100 text-gray-600"}`}>
-                {SENIORITY_LABELS[contact.seniority] ?? contact.seniority}
-              </span>
-            )}
-            {contact.yearsOfExperience && (
-              <span className="text-xs text-gray-400">{contact.yearsOfExperience} ans d'exp.</span>
-            )}
-          </div>
+      <div className="flex gap-5">
+        {/* Photo upload */}
+        <div className="shrink-0">
+          <PhotoUpload cvId={cvId} initialUrl={photoUrl} />
         </div>
 
-        {contact.profileText && (
-          <div className="pt-1 pb-2 border-b border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Profil</p>
-            <p className="text-sm text-gray-700 leading-relaxed">{contact.profileText}</p>
+        {/* Infos */}
+        <div className="flex-1 min-w-0 space-y-3">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              {fullName && <p className="text-lg font-bold text-gray-900">{fullName}</p>}
+              {contact.headline && <p className="text-sm text-brand-600 mt-0.5">{contact.headline}</p>}
+            </div>
+            <div className="flex flex-col items-end gap-1 shrink-0">
+              {contact.seniority && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SENIORITY_COLORS[contact.seniority] ?? "bg-gray-100 text-gray-600"}`}>
+                  {SENIORITY_LABELS[contact.seniority] ?? contact.seniority}
+                </span>
+              )}
+              {contact.yearsOfExperience && (
+                <span className="text-xs text-gray-400">{contact.yearsOfExperience} ans d'exp.</span>
+              )}
+            </div>
           </div>
-        )}
 
-        <div className="grid grid-cols-1 gap-1.5 text-sm">
-          {contact.email && (
-            <a href={`mailto:${contact.email}`} className="flex items-center gap-2 text-gray-600 hover:text-brand-600 transition-colors">
-              <span className="text-gray-400 w-4 text-center">✉</span>
-              {contact.email}
-            </a>
-          )}
-          {contact.phone && (
-            <div className="flex items-center gap-2 text-gray-600">
-              <span className="text-gray-400 w-4 text-center">☎</span>
-              {contact.phone}
+          {contact.profileText && (
+            <div className="pt-1 pb-2 border-b border-gray-100">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Profil</p>
+              <p className="text-sm text-gray-700 leading-relaxed">{contact.profileText}</p>
             </div>
           )}
-          {contact.address && (
-            <div className="flex items-center gap-2 text-gray-600">
-              <span className="text-gray-400 w-4 text-center">⌂</span>
-              {contact.address}
-            </div>
-          )}
-          {contact.linkedin && (
-            <a href={contact.linkedin} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 text-blue-600 hover:underline">
-              <span className="text-gray-400 w-4 text-center font-bold text-xs">in</span>
-              {contact.linkedin.replace("https://", "").replace("http://", "")}
-            </a>
-          )}
-          {contact.github && (
-            <a href={contact.github} target="_blank" rel="noopener noreferrer"
-              className="flex items-center gap-2 text-gray-700 hover:text-gray-900">
-              <span className="text-gray-400 w-4 text-center text-xs">gh</span>
-              {contact.github.replace("https://", "").replace("http://", "")}
-            </a>
-          )}
+
+          <div className="grid grid-cols-1 gap-1.5 text-sm">
+            {contact.email && (
+              <a href={`mailto:${contact.email}`} className="flex items-center gap-2 text-gray-600 hover:text-brand-600 transition-colors">
+                <span className="text-gray-400 w-4 text-center">✉</span>
+                {contact.email}
+              </a>
+            )}
+            {contact.phone && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <span className="text-gray-400 w-4 text-center">☎</span>
+                {contact.phone}
+              </div>
+            )}
+            {contact.address && (
+              <div className="flex items-center gap-2 text-gray-600">
+                <span className="text-gray-400 w-4 text-center">⌂</span>
+                {contact.address}
+              </div>
+            )}
+            {contact.linkedin && (
+              <a href={contact.linkedin} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-blue-600 hover:underline">
+                <span className="text-gray-400 w-4 text-center font-bold text-xs">in</span>
+                {contact.linkedin.replace("https://", "").replace("http://", "")}
+              </a>
+            )}
+            {contact.github && (
+              <a href={contact.github} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 text-gray-700 hover:text-gray-900">
+                <span className="text-gray-400 w-4 text-center text-xs">gh</span>
+                {contact.github.replace("https://", "").replace("http://", "")}
+              </a>
+            )}
+          </div>
         </div>
       </div>
     </div>
