@@ -62,7 +62,15 @@ function hex(color: string): string {
 }
 
 function fullName(cv: CvData): string {
-  return [cv.contact?.firstName, cv.contact?.lastName].filter(Boolean).join(" ") || "Nom du candidat"
+  const first = cv.contact?.firstName?.trim()
+  const last = cv.contact?.lastName?.trim()
+  if (first || last) return [first, last].filter(Boolean).join(" ")
+  // Fallback : "serge.dupont@x.com" → "Serge Dupont"
+  if (cv.contact?.email) {
+    const local = cv.contact.email.split("@")[0].replace(/[._\-+]/g, " ")
+    return local.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ")
+  }
+  return "Nom du candidat"
 }
 
 function contactLine(cv: CvData): string {

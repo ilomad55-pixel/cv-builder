@@ -55,6 +55,28 @@ export async function POST(
     )
   }
 
+  // ─── Post-traitement nom : rattraper cas IA manqués ──────────────────────
+  let firstName = (parsed.identity.firstName ?? "").trim()
+  let lastName = (parsed.identity.lastName ?? "").trim()
+
+  // Si firstName vide mais lastName contient plusieurs mots → split heuristique
+  if (!firstName && lastName.includes(" ")) {
+    const parts = lastName.split(/\s+/)
+    firstName = parts[0]
+    lastName = parts.slice(1).join(" ")
+  }
+  // Si tout est vide → tenter extraction depuis email (serge.dupont@ → Serge Dupont)
+  if (!firstName && !lastName && parsed.contact.email) {
+    const local = parsed.contact.email.split("@")[0].replace(/[._\-+]/g, " ").trim()
+    const parts = local.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    if (parts.length >= 2) {
+      firstName = parts[0]
+      lastName = parts.slice(1).join(" ")
+    } else {
+      lastName = parts[0] ?? ""
+    }
+  }
+
   // ─── Toutes les écritures en une transaction ──────────────────────────────
   await prisma.$transaction(async (tx) => {
 
@@ -64,8 +86,8 @@ export async function POST(
       where: { cvId: cv.id },
       create: {
         cvId: cv.id,
-        firstName: parsed.identity.firstName ?? "",
-        lastName: parsed.identity.lastName ?? "",
+        firstName,
+        lastName,
         headline: parsed.identity.headline ?? null,
         seniority: parsed.identity.seniority ?? null,
         yearsOfExperience: parsed.identity.yearsOfExperience ?? null,
@@ -77,8 +99,8 @@ export async function POST(
         profileText: parsed.profile.summary ?? null,
       },
       update: {
-        firstName: parsed.identity.firstName ?? "",
-        lastName: parsed.identity.lastName ?? "",
+        firstName,
+        lastName,
         headline: parsed.identity.headline ?? null,
         seniority: parsed.identity.seniority ?? null,
         yearsOfExperience: parsed.identity.yearsOfExperience ?? null,

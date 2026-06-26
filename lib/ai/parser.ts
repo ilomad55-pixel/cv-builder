@@ -110,6 +110,12 @@ RÈGLES ABSOLUES :
 8. Estime seniority basé sur années d'expérience et responsabilités : junior|confirmed|senior|lead|expert|unknown
 9. technologies : liste séparée par des virgules
 10. methods : méthodologies et approches utilisées dans le poste (Agile, Scrum, etc.)
+11. NOM DU CANDIDAT — règles strictes :
+    - Le nom est TOUJOURS présent dans un CV. Cherche-le en en-tête, dans les coordonnées, dans l'email si nécessaire.
+    - Si le nom est en MAJUSCULES (ex: "DUPONT JEAN-MARIE"), convertis en format Titre : lastName="Dupont", firstName="Jean-Marie"
+    - Si tu vois "NOM Prénom" (format Malgache/Africain : nom de famille EN PREMIER), inverser : lastName=premier token, firstName=reste
+    - Si tu ne peux pas distinguer prénom et nom, mets le prénom probable dans firstName et le reste dans lastName — ne laisse JAMAIS les deux à null si un nom est visible
+    - Si vraiment aucun nom trouvé, note-le dans parsing.warnings
 
 SCHÉMA JSON ATTENDU (retourne EXACTEMENT cette structure) :
 {
