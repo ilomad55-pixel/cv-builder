@@ -18,6 +18,7 @@ model Company {
   secondaryColor  String   @default("#ffffff")
   fontFamily      String   @default("Arial")
   sectionSettings Json?
+  blockSettings   Json?
   cvs             Cv[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -69,6 +70,7 @@ model Contact {
   phone             String?
   linkedin          String?
   github            String?
+  photoUrl          String?
   profileText       String?
 
   @@map("contacts")

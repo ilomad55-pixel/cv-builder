@@ -4,6 +4,11 @@ import {
   Paragraph,
   TextRun,
   ImageRun,
+  Table,
+  TableRow,
+  TableCell,
+  WidthType,
+  VerticalAlign,
   AlignmentType,
   BorderStyle,
   ShadingType,
@@ -11,6 +16,7 @@ import {
   TabStopType,
   TabStopPosition,
 } from "docx"
+import type { BlockSettings } from "@/components/settings/BlockSettingsForm"
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface CvData {
@@ -22,6 +28,7 @@ export interface CvData {
     phone?: string | null
     address?: string | null
     linkedin?: string | null
+    photoUrl?: string | null
     profileText?: string | null
   } | null
   experiences: Array<{
@@ -138,10 +145,144 @@ function logoParagraph(logoBuffer: Buffer): Paragraph {
   })
 }
 
+// ─── Helpers photo + table en-tête ───────────────────────────────────────────
+function photoSize(w: number, h: number, maxPx = 90): { width: number; height: number } {
+  const ratio = Math.min(maxPx / w, maxPx / h, 1)
+  return { width: Math.round(w * ratio), height: Math.round(h * ratio) }
+}
+
+function imageRunFromBuffer(buf: Buffer, maxPx: number): ImageRun {
+  let width = maxPx, height = maxPx
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sizeOf = require("image-size")
+    const dims = sizeOf(buf)
+    if (dims?.width && dims?.height) {
+      const s = photoSize(dims.width, dims.height, maxPx)
+      width = s.width
+      height = s.height
+    }
+  } catch { /* fallback */ }
+  return new ImageRun({ type: detectImageType(buf), data: buf, transformation: { width, height } })
+}
+
+const NO_BORDER = { style: BorderStyle.NONE, size: 0, color: "auto" }
+const TABLE_BORDERS = { top: NO_BORDER, bottom: NO_BORDER, left: NO_BORDER, right: NO_BORDER, insideHorizontal: NO_BORDER, insideVertical: NO_BORDER }
+
+function emptyCell(pct: number): TableCell {
+  return new TableCell({
+    children: [new Paragraph("")],
+    width: { size: pct, type: WidthType.PERCENTAGE },
+    borders: TABLE_BORDERS,
+  })
+}
+
+// Récupère la couleur d'un bloc depuis blockSettings (avec fallback)
+function blockColor(bs: BlockSettings | null, id: string, fallback: string): string {
+  return hex(bs?.sections?.[id]?.color ?? fallback)
+}
+
+function blockFont(bs: BlockSettings | null, id: string, fallback: string): string {
+  return bs?.sections?.[id]?.font ?? fallback
+}
+
+function blockBg(bs: BlockSettings | null, id: string): string | null {
+  const bg = bs?.sections?.[id]?.bgColor
+  return bg && bg !== "#ffffff" ? hex(bg) : null
+}
+
+// En-tête en tableau 3 colonnes : photo | contenu | logo
+function headerTable(
+  cv: CvData,
+  b: BrandingData,
+  photoBuffer: Buffer | null,
+  logoBuffer: Buffer | null,
+  bs: BlockSettings | null,
+  templateStyle: "classique" | "moderne" | "ats"
+): Table {
+  const c = hex(b.primaryColor)
+  const f = b.fontFamily
+  const showPhoto = bs?.header?.showPhoto !== false && !!photoBuffer
+  const showLogo = bs?.header?.showLogo !== false && !!logoBuffer
+  const showHeadline = bs?.header?.showHeadline !== false
+  const photoOnLeft = !bs?.header?.layout || bs.header.layout === "photo-left"
+
+  const namePara = new Paragraph({
+    children: [new TextRun({
+      text: fullName(cv),
+      size: templateStyle === "moderne" ? 56 : 46,
+      bold: true,
+      color: c,
+      font: f,
+    })],
+    spacing: { after: 60 },
+  })
+
+  const headlinePara = cv.contact?.headline && showHeadline
+    ? new Paragraph({
+        children: [new TextRun({ text: cv.contact.headline.toUpperCase(), size: 20, bold: true, color: c, font: f })],
+        border: {
+          top: { style: BorderStyle.SINGLE, size: 6, color: c, space: 4 },
+          bottom: { style: BorderStyle.SINGLE, size: 6, color: c, space: 4 },
+          left: { style: BorderStyle.SINGLE, size: 6, color: c, space: 8 },
+          right: { style: BorderStyle.SINGLE, size: 6, color: c, space: 8 },
+        },
+        spacing: { after: 80 },
+      })
+    : null
+
+  const contactItems = [cv.contact?.phone, cv.contact?.email, cv.contact?.address, cv.contact?.linkedin].filter(Boolean)
+  const contactPara = contactItems.length > 0
+    ? new Paragraph({
+        children: contactItems.flatMap((item, i) => [
+          ...(i > 0 ? [new TextRun({ text: "  |  ", size: 18, color: "888888", font: f })] : []),
+          new TextRun({ text: item!, size: 18, font: f, color: "444444" }),
+        ]),
+        spacing: { after: 0 },
+      })
+    : null
+
+  const mainChildren = [namePara, headlinePara, contactPara].filter(Boolean) as Paragraph[]
+  const mainCell = new TableCell({
+    children: mainChildren,
+    width: { size: showPhoto || showLogo ? 60 : 100, type: WidthType.PERCENTAGE },
+    verticalAlign: VerticalAlign.CENTER,
+    borders: TABLE_BORDERS,
+  })
+
+  const photoCell = showPhoto && photoBuffer
+    ? new TableCell({
+        children: [new Paragraph({ children: [imageRunFromBuffer(photoBuffer, 90)], spacing: { after: 0 } })],
+        width: { size: 20, type: WidthType.PERCENTAGE },
+        verticalAlign: VerticalAlign.CENTER,
+        borders: TABLE_BORDERS,
+      })
+    : emptyCell(0)
+
+  const logoCell = showLogo && logoBuffer
+    ? new TableCell({
+        children: [new Paragraph({ children: [imageRunFromBuffer(logoBuffer, 100)], alignment: AlignmentType.RIGHT, spacing: { after: 0 } })],
+        width: { size: 20, type: WidthType.PERCENTAGE },
+        verticalAlign: VerticalAlign.CENTER,
+        borders: TABLE_BORDERS,
+      })
+    : emptyCell(0)
+
+  const cells = photoOnLeft
+    ? [photoCell, mainCell, logoCell]
+    : [mainCell, photoCell, logoCell]
+
+  return new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: TABLE_BORDERS,
+    rows: [new TableRow({ children: cells })],
+  })
+}
+
 // ─── Builders de sections partagés ───────────────────────────────────────────
 type SectionMap = Map<string, () => Paragraph[]>
 
-function buildSections1(cv: CvData, ss: SectionSettings | null, c: string, f: string): SectionMap {
+function buildSections1(cv: CvData, ss: SectionSettings | null, c: string, f: string, bs: BlockSettings | null = null): SectionMap {
   const m: SectionMap = new Map()
 
   m.set("profile", () => {
@@ -232,7 +373,7 @@ function buildSections1(cv: CvData, ss: SectionSettings | null, c: string, f: st
   return m
 }
 
-function buildSections2(cv: CvData, ss: SectionSettings | null, c: string, f: string): SectionMap {
+function buildSections2(cv: CvData, ss: SectionSettings | null, c: string, f: string, bs: BlockSettings | null = null): SectionMap {
   const m: SectionMap = new Map()
 
   m.set("profile", () => {
@@ -301,7 +442,7 @@ function buildSections2(cv: CvData, ss: SectionSettings | null, c: string, f: st
   return m
 }
 
-function buildSections3(cv: CvData, ss: SectionSettings | null, f: string): SectionMap {
+function buildSections3(cv: CvData, ss: SectionSettings | null, f: string, bs: BlockSettings | null = null): SectionMap {
   const m: SectionMap = new Map()
 
   m.set("profile", () => {
@@ -363,31 +504,17 @@ function buildSections3(cv: CvData, ss: SectionSettings | null, f: string): Sect
 }
 
 // ─── Templates ────────────────────────────────────────────────────────────────
-function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null): Document {
+type DocChildren = Array<Paragraph | Table>
+
+function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null, photo: Buffer | null, bs: BlockSettings | null): Document {
   const c = hex(b.primaryColor)
   const f = b.fontFamily
-  const children: Paragraph[] = []
+  const children: DocChildren = []
 
-  if (logo) children.push(logoParagraph(logo))
+  children.push(headerTable(cv, b, photo, logo, bs, "classique"))
+  children.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: c } }, spacing: { before: 160, after: 200 } }))
 
-  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv), size: 52, bold: true, color: c, font: f })], spacing: { after: 80 } }))
-  if (cv.contact?.headline) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.headline.toUpperCase(), size: 22, bold: true, color: c, font: f })],
-      border: {
-        top:    { style: BorderStyle.SINGLE, size: 6, color: c, space: 5 },
-        bottom: { style: BorderStyle.SINGLE, size: 6, color: c, space: 5 },
-        left:   { style: BorderStyle.SINGLE, size: 6, color: c, space: 8 },
-        right:  { style: BorderStyle.SINGLE, size: 6, color: c, space: 8 },
-      },
-      spacing: { before: 0, after: 120 },
-    }))
-  }
-  const cl = contactLine(cv)
-  if (cl) children.push(new Paragraph({ children: [new TextRun({ text: cl, size: 20, font: f, color: "555555" })], spacing: { after: 240 } }))
-  children.push(new Paragraph({ border: { bottom: { style: BorderStyle.SINGLE, size: 8, color: c } }, spacing: { after: 240 } }))
-
-  const sections = buildSections1(cv, ss, c, f)
+  const sections = buildSections1(cv, ss, c, f, bs)
   for (const id of orderedSectionIds(ss)) {
     children.push(...(sections.get(id)?.() ?? []))
   }
@@ -397,31 +524,15 @@ function template1(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo
   return new Document({ sections: [{ properties: { page: { margin: { top: 860, right: 860, bottom: 860, left: 860 } } }, children }] })
 }
 
-function template2(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null): Document {
+function template2(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null, photo: Buffer | null, bs: BlockSettings | null): Document {
   const c = hex(b.primaryColor)
   const f = b.fontFamily
-  const children: Paragraph[] = []
+  const children: DocChildren = []
 
-  if (logo) children.push(logoParagraph(logo))
+  children.push(headerTable(cv, b, photo, logo, bs, "moderne"))
+  children.push(new Paragraph({ border: { bottom: { style: BorderStyle.THICK, size: 16, color: c } }, spacing: { before: 160, after: 200 } }))
 
-  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv).toUpperCase(), size: 64, bold: true, color: c, font: f })], spacing: { after: 80 } }))
-  if (cv.contact?.headline) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.headline.toUpperCase(), size: 22, bold: true, color: "FFFFFF", font: f })],
-      shading: { type: ShadingType.CLEAR, color: "auto", fill: c },
-      spacing: { before: 0, after: 120 },
-    }))
-  }
-  children.push(new Paragraph({ border: { bottom: { style: BorderStyle.THICK, size: 16, color: c } }, spacing: { after: 160 } }))
-  const contactParts = [cv.contact?.email, cv.contact?.phone, cv.contact?.address].filter(Boolean)
-  if (contactParts.length > 0) {
-    children.push(new Paragraph({
-      children: contactParts.flatMap((part, i) => [...(i > 0 ? [new TextRun({ text: "  ·  ", size: 20, color: c, font: f, bold: true })] : []), new TextRun({ text: part!, size: 20, font: f })]),
-      spacing: { after: 320 },
-    }))
-  }
-
-  const sections = buildSections2(cv, ss, c, f)
+  const sections = buildSections2(cv, ss, c, f, bs)
   for (const id of orderedSectionIds(ss)) {
     children.push(...(sections.get(id)?.() ?? []))
   }
@@ -431,26 +542,14 @@ function template2(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo
   return new Document({ sections: [{ properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } }, children }] })
 }
 
-function template3(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null): Document {
+function template3(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null, photo: Buffer | null, bs: BlockSettings | null): Document {
   const f = b.fontFamily
-  const children: Paragraph[] = []
+  const children: DocChildren = []
 
-  if (logo) children.push(logoParagraph(logo))
+  children.push(headerTable(cv, b, photo, logo, bs, "ats"))
+  children.push(new Paragraph({ spacing: { after: 160 } }))
 
-  children.push(new Paragraph({ children: [new TextRun({ text: fullName(cv), size: 44, bold: true, font: f })], spacing: { after: 60 } }))
-  if (cv.contact?.headline) {
-    children.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.headline.toUpperCase(), size: 22, bold: true, font: f })],
-      border: {
-        bottom: { style: BorderStyle.SINGLE, size: 6, color: "000000", space: 4 },
-      },
-      spacing: { after: 100 },
-    }))
-  }
-  const cl = contactLine(cv)
-  if (cl) children.push(new Paragraph({ children: [new TextRun({ text: cl, size: 20, font: f })], spacing: { after: 200 } }))
-
-  const sections = buildSections3(cv, ss, f)
+  const sections = buildSections3(cv, ss, f, bs)
   for (const id of orderedSectionIds(ss)) {
     children.push(...(sections.get(id)?.() ?? []))
   }
@@ -553,15 +652,19 @@ export async function generateCvDocx(
   branding: BrandingData,
   templateId: number,
   sectionSettings?: SectionSettings | null,
-  logoBuffer?: Buffer | null
+  logoBuffer?: Buffer | null,
+  photoBuffer?: Buffer | null,
+  blockSettings?: BlockSettings | null
 ): Promise<Buffer> {
   const ss = sectionSettings ?? null
   const logo = logoBuffer ?? null
+  const photo = photoBuffer ?? null
+  const bs = blockSettings ?? null
   let doc: Document
 
-  if (templateId === 2) doc = template2(cv, branding, ss, logo)
-  else if (templateId === 3) doc = template3(cv, branding, ss, logo)
-  else doc = template1(cv, branding, ss, logo)
+  if (templateId === 2) doc = template2(cv, branding, ss, logo, photo, bs)
+  else if (templateId === 3) doc = template3(cv, branding, ss, logo, photo, bs)
+  else doc = template1(cv, branding, ss, logo, photo, bs)
 
   return Packer.toBuffer(doc) as Promise<Buffer>
 }

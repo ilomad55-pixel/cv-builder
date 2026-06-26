@@ -5,6 +5,8 @@ import { BrandingForm } from "@/components/settings/BrandingForm"
 import { PasswordForm } from "@/components/settings/PasswordForm"
 import { SectionSettingsForm } from "@/components/settings/SectionSettingsForm"
 import { LogoUpload } from "@/components/settings/LogoUpload"
+import { BlockSettingsForm } from "@/components/settings/BlockSettingsForm"
+import type { BlockSettings } from "@/components/settings/BlockSettingsForm"
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions)
@@ -12,7 +14,7 @@ export default async function SettingsPage() {
 
   const company = await prisma.company.findUnique({
     where: { id: session.user.id },
-    select: { name: true, primaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true },
+    select: { name: true, primaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true, blockSettings: true },
   })
 
   if (!company) return null
@@ -25,6 +27,11 @@ export default async function SettingsPage() {
       </div>
       <LogoUpload currentUrl={company.logoUrl} />
       <BrandingForm initial={company} />
+      <BlockSettingsForm
+        initial={company.blockSettings as BlockSettings | null}
+        primaryColor={company.primaryColor}
+        fontFamily={company.fontFamily}
+      />
       <SectionSettingsForm initial={company.sectionSettings as Record<string, { visible: boolean; order: number }> | null} />
       <PasswordForm />
     </div>

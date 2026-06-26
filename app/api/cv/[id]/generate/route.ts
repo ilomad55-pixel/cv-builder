@@ -4,6 +4,7 @@ import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { generateCvDocx } from "@/lib/docx/generator"
 import { downloadFile, extractKey } from "@/lib/storage"
+import type { BlockSettings } from "@/components/settings/BlockSettingsForm"
 
 export async function POST(
   request: NextRequest,
@@ -23,7 +24,7 @@ export async function POST(
       educations: { orderBy: { order: "asc" } },
       languages: { where: { display: true }, orderBy: { order: "asc" } },
       certifications: { where: { display: true }, orderBy: { order: "asc" } },
-      company: { select: { name: true, primaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true } },
+      company: { select: { name: true, primaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true, blockSettings: true } },
     },
   })
 
@@ -36,13 +37,18 @@ export async function POST(
   const body = await request.json().catch(() => ({}))
   const templateId = Number(body.templateId) || 1
   const sectionSettings = cv.company.sectionSettings as Record<string, { visible: boolean; order: number }> | null
+  const blockSettings = cv.company.blockSettings as BlockSettings | null
 
   // Télécharger le logo si disponible
   let logoBuffer: Buffer | null = null
   if (cv.company.logoUrl) {
-    try {
-      logoBuffer = await downloadFile(extractKey(cv.company.logoUrl))
-    } catch { /* ignore — génère sans logo si indisponible */ }
+    try { logoBuffer = await downloadFile(extractKey(cv.company.logoUrl)) } catch { /* ignore */ }
+  }
+
+  // Télécharger la photo de l'employé si disponible
+  let photoBuffer: Buffer | null = null
+  if (cv.contact?.photoUrl) {
+    try { photoBuffer = await downloadFile(extractKey(cv.contact.photoUrl)) } catch { /* ignore */ }
   }
 
   const buffer = await generateCvDocx(
@@ -57,7 +63,9 @@ export async function POST(
     { companyName: cv.company.name, primaryColor: cv.company.primaryColor, fontFamily: cv.company.fontFamily },
     templateId,
     sectionSettings,
-    logoBuffer
+    logoBuffer,
+    photoBuffer,
+    blockSettings
   )
 
   await prisma.cv.update({
