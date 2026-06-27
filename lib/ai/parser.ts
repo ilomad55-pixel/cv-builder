@@ -209,14 +209,18 @@ SCHÉMA JSON ATTENDU (retourne EXACTEMENT cette structure) :
 
 const MAX_TEXT_LENGTH = 20_000
 
-export async function parseCvWithAI(rawText: string): Promise<ParsedCv> {
+export async function parseCvWithAI(rawText: string, fileName?: string): Promise<ParsedCv> {
   const text = rawText.slice(0, MAX_TEXT_LENGTH)
+
+  const fileHint = fileName
+    ? `Nom du fichier CV : "${fileName}"\nSi le nom du candidat n'est pas clairement visible dans le texte, extrait-le du nom du fichier (ex: "Olivier-MORA-..." → firstName="Olivier", lastName="Mora").\n\n`
+    : ""
 
   const response = await openai.chat.completions.create({
     model: process.env.AI_MODEL ?? "gpt-4o-mini",
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
-      { role: "user", content: `TEXTE DU CV À ANALYSER :\n\n${text}` },
+      { role: "user", content: `${fileHint}TEXTE DU CV À ANALYSER :\n\n${text}` },
     ],
     response_format: { type: "json_object" },
     max_tokens: 8000,

@@ -29,7 +29,7 @@ export async function POST(
 
   let parsed
   try {
-    parsed = await parseCvWithAI(cv.rawText)
+    parsed = await parseCvWithAI(cv.rawText, cv.originalFileName ?? undefined)
   } catch (err) {
     if (err instanceof OpenAI.APIError) {
       if (err.status === 429) {
@@ -55,36 +55,63 @@ export async function POST(
     )
   }
 
-  // ─── Post-traitement nom : rattraper cas IA manqués ──────────────────────
+  // ─── Post-traitement nom ──────────────────────────────────────────────────
   const toTitleCase = (s: string) =>
-    s.split(/(\s+|-)/).map(token =>
-      /[a-zA-ZÀ-ÿ]/.test(token) ? token.charAt(0).toUpperCase() + token.slice(1).toLowerCase() : token
-    ).join("")
+    s.split(/(\s+|-)/).map(t => /[a-zA-ZÀ-ÿ]/.test(t) ? t.charAt(0).toUpperCase() + t.slice(1).toLowerCase() : t).join("")
 
   let firstName = (parsed.identity.firstName ?? "").trim()
   let lastName = (parsed.identity.lastName ?? "").trim()
 
-  // Si firstName vide mais lastName contient plusieurs mots → split heuristique
+  // Normalisation casse : tout en majuscules → Title Case
+  if (firstName && firstName === firstName.toUpperCase()) firstName = toTitleCase(firstName)
+  if (lastName && lastName === lastName.toUpperCase()) lastName = toTitleCase(lastName)
+
+  // Si firstName vide mais lastName contient plusieurs mots → split
   if (!firstName && lastName.includes(" ")) {
     const parts = lastName.split(/\s+/)
     firstName = parts[0]
     lastName = parts.slice(1).join(" ")
   }
-  // Si tout est vide → tenter extraction depuis email (serge.dupont@ → Serge Dupont)
-  if (!firstName && !lastName && parsed.contact.email) {
-    const local = parsed.contact.email.split("@")[0].replace(/[._\-+]/g, " ").trim()
-    const parts = local.split(/\s+/).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
-    if (parts.length >= 2) {
-      firstName = parts[0]
-      lastName = parts.slice(1).join(" ")
-    } else {
-      lastName = parts[0] ?? ""
+
+  // Fallback 1 : nom de fichier (ex: "Olivier-MORA-Chef_de_projet.pdf" → Olivier, Mora)
+  if ((!firstName || !lastName) && cv.originalFileName) {
+    const base = cv.originalFileName.replace(/\.[^.]+$/, "")
+    const tokens = base.split(/[-_\s]+/).filter(t => t.length > 1 && /^[A-Za-zÀ-ÿ]/.test(t))
+    // Prend les 2 premiers tokens qui ressemblent à des noms (pas de chiffres ni caractères spéciaux)
+    const nameTokens = tokens.filter(t => /^[A-Za-zÀ-ÿ-]+$/.test(t)).slice(0, 2)
+    if (nameTokens.length >= 2) {
+      // Détection format : token ALL_CAPS = nom de famille
+      const t0allCaps = nameTokens[0] === nameTokens[0].toUpperCase() && nameTokens[0].length > 1
+      const t1allCaps = nameTokens[1] === nameTokens[1].toUpperCase() && nameTokens[1].length > 1
+      if (!t0allCaps && t1allCaps) {
+        // "Olivier-MORA" → firstName=Olivier, lastName=Mora
+        if (!firstName) firstName = toTitleCase(nameTokens[0])
+        if (!lastName) lastName = toTitleCase(nameTokens[1])
+      } else if (t0allCaps && !t1allCaps) {
+        // "MORA-Olivier" → lastName=Mora, firstName=Olivier
+        if (!lastName) lastName = toTitleCase(nameTokens[0])
+        if (!firstName) firstName = toTitleCase(nameTokens[1])
+      } else {
+        if (!firstName) firstName = toTitleCase(nameTokens[0])
+        if (!lastName) lastName = toTitleCase(nameTokens[1])
+      }
+    } else if (nameTokens.length === 1 && !firstName && !lastName) {
+      lastName = toTitleCase(nameTokens[0])
     }
   }
 
-  // Normalisation casse : si token entièrement en majuscules → Title Case
-  if (firstName && firstName === firstName.toUpperCase()) firstName = toTitleCase(firstName)
-  if (lastName && lastName === lastName.toUpperCase()) lastName = toTitleCase(lastName)
+  // Fallback 2 : email (seulement si l'adresse contient un séparateur → prénom.nom@)
+  if (!firstName && !lastName && parsed.contact.email) {
+    const local = parsed.contact.email.split("@")[0]
+    if (/[._\-+]/.test(local)) {
+      // ex: olivier.mora@ → ["Olivier", "Mora"]
+      const parts = local.replace(/[._\-+]/g, " ").trim().split(/\s+/)
+        .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+      firstName = parts[0] ?? ""
+      lastName = parts.slice(1).join(" ")
+    }
+    // Si email sans séparateur (moramanana@) → on n'essaie pas, trop risqué
+  }
 
   // ─── Toutes les écritures en une transaction ──────────────────────────────
   await prisma.$transaction(async (tx) => {
