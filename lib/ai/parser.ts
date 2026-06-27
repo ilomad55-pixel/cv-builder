@@ -118,17 +118,19 @@ RÈGLES ABSOLUES :
 9. technologies dans une expérience : uniquement les techs utilisées DANS CE POSTE (liste CSV)
 10. methods : méthodologies utilisées dans le poste (Agile, Scrum, etc.)
 11. NOM DU CANDIDAT — règles strictes :
-    - Le nom est TOUJOURS présent dans un CV. Cherche-le en en-tête, dans les coordonnées, dans l'email si nécessaire.
-    - Si le nom est en MAJUSCULES (ex: "DUPONT JEAN-MARIE" ou "Olivier MORA"), convertis chaque token en format Titre : "MORA" → "Mora", "JEAN-MARIE" → "Jean-Marie"
-    - Si tu vois "NOM Prénom" (format Malgache/Africain : nom de famille EN PREMIER EN MAJUSCULES, suivi du prénom), inverser : lastName=premier token (converti en Titre), firstName=reste
-    - Si tu vois "Prénom NOM" (prénom normal puis nom en MAJUSCULES comme "Olivier MORA"), c'est firstName="Olivier", lastName="Mora"
-    - Ne laisse JAMAIS les deux à null si un nom est visible dans le document
-    - Si vraiment aucun nom trouvé, note-le dans parsing.warnings
+    - Le nom est en général sur la PREMIÈRE LIGNE du CV, en gras ou en grande taille.
+    - FORMAT "Prénom NOM_EN_MAJUSCULES" (ex: "Olivier MORA", "Jean-Pierre DUPONT") : c'est le format français standard. firstName = le(s) mot(s) en casse normale ("Olivier"), lastName = le(s) mot(s) tout en majuscules converti en Titre ("MORA" → "Mora").
+    - FORMAT "NOM_EN_MAJUSCULES Prénom" (nom de famille en premier, format Malgache/Africain) : inverser. lastName = premier token converti en Titre, firstName = la suite.
+    - FORMAT tout en majuscules "DUPONT JEAN" : lastName="Dupont", firstName="Jean".
+    - NE JAMAIS utiliser le nom local d'une adresse email comme source du nom du candidat. "moramanana@gmail.com" n'est PAS un nom — ignore-le pour identity.firstName et identity.lastName.
+    - Ne laisse JAMAIS firstName et lastName tous les deux à null ou vide si un nom est visible dans le document.
+    - Si vraiment aucun nom trouvé dans le texte, utilise le nom de fichier s'il t'a été fourni.
 12. TITRE PROFESSIONNEL (headline) — règles strictes :
-    - Extrait le titre exactement tel qu'il apparaît dans le CV, sans modifier ni tronquer
-    - NE RETIRE JAMAIS un mot du titre pour l'affecter à seniority — seniority est inféré séparément et n'affecte pas headline
-    - Exemple : "Chef de projet confirmé" → headline="Chef de projet confirmé", seniority="confirmed"
-    - Si aucun titre explicite, infère-en un sobre depuis le premier poste ou laisse null
+    - Le titre est généralement sur la 2e ou 3e ligne du CV, juste sous le nom, en gras.
+    - Extrait-le EXACTEMENT tel qu'il apparaît : "Chef de projet confirmé" → headline="Chef de projet confirmé".
+    - NE RETIRE JAMAIS un mot du titre pour alimenter seniority. seniority est inféré indépendamment.
+    - Exemple complet : "Olivier MORA\nChef de projet confirmé" → firstName="Olivier", lastName="Mora", headline="Chef de projet confirmé", seniority="confirmed".
+    - Si aucun titre explicite dans le document, infère depuis le poste le plus récent ou laisse null.
 
 SCHÉMA JSON ATTENDU (retourne EXACTEMENT cette structure) :
 {
