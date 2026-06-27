@@ -646,6 +646,246 @@ function labeledBlock(label: string, value: string, f: string, indent = 120): Pa
   ]
 }
 
+// ─── Template ILOMAD — 2 colonnes ────────────────────────────────────────────
+
+function ilomadHeaderTable(
+  cv: CvData,
+  b: BrandingData,
+  photoBuffer: Buffer | null,
+  logoBuffer: Buffer | null,
+  bs: BlockSettings | null
+): Table {
+  const c = hex(b.primaryColor)
+  const f = b.fontFamily
+  const showPhoto = bs?.header?.showPhoto !== false && !!photoBuffer
+  const showLogo  = bs?.header?.showLogo  !== false && !!logoBuffer
+  const photoOnLeft = !bs?.header?.layout || bs.header.layout === "photo-left"
+  const fill = { type: ShadingType.CLEAR, color: "auto", fill: c }
+  const marg = { top: 160, bottom: 160, left: 160, right: 160 }
+
+  const titlePara = cv.contact?.headline
+    ? new Paragraph({ children: [new TextRun({ text: cv.contact.headline, size: 24, bold: true, color: "FFFFFF", font: f })], alignment: AlignmentType.CENTER, shading: fill, spacing: { after: 40 } })
+    : null
+
+  const namePara = new Paragraph({ children: [new TextRun({ text: fullName(cv), size: 44, bold: true, color: "FFFFFF", font: f })], alignment: AlignmentType.CENTER, shading: fill, spacing: { before: titlePara ? 0 : 80, after: 80 } })
+
+  const centerChildren = [titlePara, namePara].filter(Boolean) as Paragraph[]
+
+  // Calcul des largeurs selon présence photo/logo
+  const hasLeft  = showPhoto
+  const hasRight = showLogo
+  const centerPct = hasLeft && hasRight ? 60 : (hasLeft || hasRight) ? 80 : 100
+  const sidePct   = hasLeft && hasRight ? 20 : 20
+
+  const photoCell = showPhoto && photoBuffer
+    ? new TableCell({ children: [new Paragraph({ children: [imageRunFromBuffer(photoBuffer, 80)], alignment: AlignmentType.CENTER, spacing: { after: 0 } })], width: { size: sidePct, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, shading: fill, borders: TABLE_BORDERS, margins: marg })
+    : null
+
+  const logoCell = showLogo && logoBuffer
+    ? new TableCell({ children: [new Paragraph({ children: [imageRunFromBuffer(logoBuffer, 80)], alignment: AlignmentType.CENTER, spacing: { after: 0 } })], width: { size: sidePct, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, shading: fill, borders: TABLE_BORDERS, margins: marg })
+    : null
+
+  const centerCell = new TableCell({ children: centerChildren, width: { size: centerPct, type: WidthType.PERCENTAGE }, verticalAlign: VerticalAlign.CENTER, shading: fill, borders: TABLE_BORDERS, margins: { top: 200, bottom: 200, left: 200, right: 200 } })
+
+  const cells: TableCell[] = []
+  if (photoOnLeft) {
+    if (photoCell) cells.push(photoCell)
+    cells.push(centerCell)
+    if (logoCell) cells.push(logoCell)
+  } else {
+    cells.push(centerCell)
+    if (photoCell) cells.push(photoCell)
+    if (logoCell) cells.push(logoCell)
+  }
+
+  return new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, borders: TABLE_BORDERS, rows: [new TableRow({ children: cells })] })
+}
+
+function ilomadSectionTitle(text: string, c: string, f: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text, size: 22, bold: true, color: c, font: f })],
+    alignment: AlignmentType.CENTER,
+    border: { bottom: { style: BorderStyle.SINGLE, size: 6, color: c } },
+    spacing: { before: 280, after: 120 },
+  })
+}
+
+function ilomadSubTitle(text: string, c: string, f: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text, size: 19, bold: true, color: c, font: f })],
+    spacing: { before: 160, after: 80 },
+  })
+}
+
+function ilomadBullet(text: string, f: string): Paragraph {
+  return new Paragraph({
+    children: [new TextRun({ text: "•  ", size: 19, bold: true, font: f }), new TextRun({ text, size: 19, font: f })],
+    indent: { left: 100 },
+    spacing: { after: 50 },
+  })
+}
+
+function ilomadLeftColumn(cv: CvData, c: string, f: string): Paragraph[] {
+  const paras: Paragraph[] = []
+
+  // CONTACT
+  paras.push(ilomadSectionTitle("CONTACT", c, f))
+  const contactItems: [string, string][] = [
+    ["✉", cv.contact?.email ?? ""],
+    ["☎", cv.contact?.phone ?? ""],
+    ["⌂", cv.contact?.address ?? ""],
+  ].filter(([, v]) => v) as [string, string][]
+  for (const [icon, val] of contactItems) {
+    paras.push(new Paragraph({ children: [new TextRun({ text: `${icon}  `, size: 20, color: c, font: f }), new TextRun({ text: val, size: 19, font: f })], spacing: { after: 60 } }))
+  }
+  if (cv.contact?.linkedin) {
+    paras.push(new Paragraph({ children: [new TextRun({ text: "in  ", size: 18, bold: true, color: c, font: f }), new TextRun({ text: cv.contact.linkedin.replace(/https?:\/\//, ""), size: 18, font: f })], spacing: { after: 60 } }))
+  }
+
+  // FORMATION
+  if (cv.educations.length > 0) {
+    paras.push(ilomadSectionTitle("FORMATION", c, f))
+    for (const edu of cv.educations) {
+      const dateStr = [edu.startYear, edu.endYear].filter(Boolean).join(" - ")
+      if (dateStr) paras.push(new Paragraph({ children: [new TextRun({ text: dateStr, size: 18, color: "888888", font: f })], spacing: { after: 20 } }))
+      paras.push(new Paragraph({ children: [new TextRun({ text: edu.degree, size: 20, bold: true, color: c, font: f })], spacing: { after: 20 } }))
+      if (edu.school) paras.push(new Paragraph({ children: [new TextRun({ text: edu.school, size: 18, italics: true, font: f })], spacing: { after: edu.honors ? 20 : 120 } }))
+      if (edu.honors) paras.push(new Paragraph({ children: [new TextRun({ text: edu.honors, size: 18, font: f, color: "666666" })], spacing: { after: 120 } }))
+    }
+  }
+
+  // SKILLS | EXTRAS (soft skills)
+  const soft = cv.skills.filter((s) => s.category === "soft")
+  if (soft.length > 0) {
+    paras.push(ilomadSectionTitle("SKILLS | EXTRAS", c, f))
+    for (const s of soft) {
+      paras.push(new Paragraph({
+        children: [
+          new TextRun({ text: "•  ", size: 19, bold: true, color: c, font: f }),
+          new TextRun({ text: s.name, size: 19, bold: true, font: f }),
+          ...(s.level ? [new TextRun({ text: ` — ${s.level}`, size: 19, font: f })] : []),
+        ],
+        indent: { left: 80 },
+        spacing: { after: 80 },
+      }))
+    }
+  }
+
+  // LANGUES
+  if (cv.languages.length > 0) {
+    paras.push(ilomadSectionTitle("LANGUES", c, f))
+    for (const lang of cv.languages) {
+      const level = lang.levelLabel || lang.cefrLevel
+      paras.push(new Paragraph({
+        children: [
+          new TextRun({ text: lang.language, size: 19, bold: true, font: f }),
+          ...(level ? [new TextRun({ text: ` : ${level}`, size: 19, font: f })] : []),
+        ],
+        spacing: { after: 60 },
+      }))
+    }
+  }
+
+  paras.push(new Paragraph({ children: [new TextRun("")], spacing: { after: 200 } }))
+  return paras
+}
+
+function ilomadRightColumn(cv: CvData, c: string, f: string): Paragraph[] {
+  const paras: Paragraph[] = []
+
+  const functional = cv.skills.filter((s) => s.category === "methodology")
+  const metier     = cv.skills.filter((s) => s.category === "tool")
+  const technical  = cv.skills.filter((s) => s.category === "technical")
+
+  if (functional.length + metier.length + technical.length > 0) {
+    paras.push(ilomadSectionTitle("COMPÉTENCE", c, f))
+
+    const renderSkillLine = (skills: typeof functional) =>
+      new Paragraph({
+        children: skills.flatMap((s, i) => [
+          ...(i > 0 ? [new TextRun({ text: "  ·  ", size: 19, font: f, color: "AAAAAA" })] : []),
+          new TextRun({ text: s.name, size: 19, font: f }),
+        ]),
+        spacing: { after: 80 },
+      })
+
+    if (functional.length > 0) { paras.push(ilomadSubTitle("COMPÉTENCES FONCTIONNELLES", c, f)); paras.push(renderSkillLine(functional)) }
+    if (metier.length > 0)     { paras.push(ilomadSubTitle("COMPÉTENCES MÉTIERS", c, f));     paras.push(renderSkillLine(metier)) }
+    if (technical.length > 0)  { paras.push(ilomadSubTitle("COMPÉTENCES TECHNIQUES", c, f));  paras.push(renderSkillLine(technical)) }
+  }
+
+  // EXPÉRIENCES
+  if (cv.experiences.length > 0) {
+    paras.push(ilomadSectionTitle("EXPÉRIENCES PROFESSIONNELLES", c, f))
+    for (const exp of cv.experiences) {
+      const dateStr = exp.endDate ? `${exp.startDate} - ${exp.endDate}` : exp.isCurrent ? `${exp.startDate} - Présent` : exp.startDate
+      const firstLine = exp.client ? exp.client : exp.company
+
+      // Titre
+      paras.push(new Paragraph({ children: [new TextRun({ text: exp.title.toUpperCase(), size: 22, bold: true, font: f })], spacing: { before: 240, after: 40 } }))
+      // Client / org + dates
+      paras.push(new Paragraph({ children: [new TextRun({ text: `${firstLine}, ${dateStr}`, size: 20, bold: true, color: c, font: f })], spacing: { after: 40 } }))
+      // Entreprise si client ≠ organisation
+      if (exp.client && exp.company) {
+        paras.push(new Paragraph({ children: [new TextRun({ text: exp.company, size: 18, italics: true, font: f, color: "666666" })], spacing: { after: 40 } }))
+      }
+
+      // Contexte — extrait "Projet :" et "Service :" du champ context
+      if (exp.context) {
+        const lines = exp.context.split("\n").filter(Boolean)
+        const projet  = lines.find(l => l.startsWith("Projet :"))
+        const service = lines.find(l => l.startsWith("Service :"))
+        const ctx     = lines.filter(l => !l.startsWith("Projet :") && !l.startsWith("Service :")).join(" ")
+        if (projet)  paras.push(new Paragraph({ children: [new TextRun({ text: projet,  size: 19, bold: true, italics: true, font: f, color: "444444" })], spacing: { after: 40 } }))
+        if (service) paras.push(new Paragraph({ children: [new TextRun({ text: service, size: 18, font: f, color: "666666" })], spacing: { after: 40 } }))
+        if (ctx)     paras.push(new Paragraph({ children: [new TextRun({ text: "Contexte : ", size: 19, bold: true, font: f }), new TextRun({ text: ctx, size: 19, font: f })], spacing: { after: 60 } }))
+      }
+
+      // Réalisations
+      if (exp.achievements) {
+        const bullets = exp.achievements.split("\n").filter(l => l.trim())
+        if (bullets.length > 0) {
+          paras.push(new Paragraph({ children: [new TextRun({ text: "Réalisations :", size: 19, bold: true, font: f })], spacing: { after: 40 } }))
+          for (const b of bullets) paras.push(ilomadBullet(b.trim(), f))
+        }
+      }
+
+      // Environnement technique
+      if (exp.technologies) {
+        paras.push(new Paragraph({ children: [new TextRun({ text: "Environnement technique : ", size: 18, bold: true, font: f, color: "555555" }), new TextRun({ text: exp.technologies, size: 18, font: f, color: "555555" })], spacing: { before: 60, after: 80 } }))
+      }
+    }
+  }
+
+  return paras
+}
+
+function templateIlomad(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null, photo: Buffer | null, bs: BlockSettings | null): Document {
+  const c = hex(b.primaryColor)
+  const f = b.fontFamily
+  const children: DocChildren = []
+
+  children.push(ilomadHeaderTable(cv, b, photo, logo, bs))
+
+  if (cv.contact?.profileText) {
+    children.push(new Paragraph({ children: [new TextRun({ text: "PROFIL :", size: 22, bold: true, color: c, font: f })], spacing: { before: 200, after: 80 } }))
+    children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })], border: { left: { style: BorderStyle.SINGLE, size: 12, color: c, space: 8 } }, indent: { left: 120 }, spacing: { after: 200 } }))
+  }
+
+  children.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: TABLE_BORDERS,
+    rows: [new TableRow({
+      children: [
+        new TableCell({ children: ilomadLeftColumn(cv, c, f), width: { size: 33, type: WidthType.PERCENTAGE }, shading: { type: ShadingType.CLEAR, color: "auto", fill: "EEF3F0" }, margins: { top: 160, bottom: 160, left: 240, right: 240 }, borders: TABLE_BORDERS }),
+        new TableCell({ children: ilomadRightColumn(cv, c, f), width: { size: 67, type: WidthType.PERCENTAGE }, margins: { top: 160, bottom: 160, left: 240, right: 240 }, borders: TABLE_BORDERS }),
+      ],
+    })],
+  }))
+
+  return new Document({ sections: [{ properties: { page: { margin: { top: 720, right: 720, bottom: 720, left: 720 } } }, children }] })
+}
+
 // ─── Export principal ─────────────────────────────────────────────────────────
 export async function generateCvDocx(
   cv: CvData,
@@ -664,12 +904,14 @@ export async function generateCvDocx(
 
   if (templateId === 2) doc = template2(cv, branding, ss, logo, photo, bs)
   else if (templateId === 3) doc = template3(cv, branding, ss, logo, photo, bs)
+  else if (templateId === 4) doc = templateIlomad(cv, branding, ss, logo, photo, bs)
   else doc = template1(cv, branding, ss, logo, photo, bs)
 
   return Packer.toBuffer(doc) as Promise<Buffer>
 }
 
 export const TEMPLATES = [
+  { id: 4, name: "ILOMAD", description: "2 colonnes — photo + logo en en-tête coloré, compétences à gauche, expériences à droite" },
   { id: 1, name: "Classique", description: "En-tête élégant, structure claire, séparateur coloré" },
   { id: 2, name: "Moderne", description: "Nom impactant, barre de couleur latérale, style contemporain" },
   { id: 3, name: "ATS Optimisé", description: "Structure simple, lecture machine prioritaire, compatible tous ATS" },
