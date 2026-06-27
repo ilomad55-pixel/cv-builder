@@ -3,211 +3,157 @@ import { z } from "zod"
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY! })
 
-// ─── Schéma de sortie canonique ──────────────────────────────────────────────
-
-const SkillItemSchema = z.object({
-  name: z.string(),
-  level: z.string().nullable().optional(),
-})
+// ─── Schéma canonique — aligné sur le template métier ILOMAD ─────────────────
 
 const ParsedCvSchema = z.object({
-  identity: z.object({
-    firstName: z.string().nullable().optional(),
-    lastName: z.string().nullable().optional(),
-    headline: z.string().nullable().optional(),
-    seniority: z.string().nullable().optional(),
-    yearsOfExperience: z.string().nullable().optional(),
-  }).catch({}),
-
-  contact: z.object({
+  CONTACT: z.object({
+    prenom: z.string().nullable().optional(),
+    nom: z.string().nullable().optional(),
+    titre: z.string().nullable().optional(),
+    resume_court: z.string().nullable().optional(),
+    adresse: z.string().nullable().optional(),
     email: z.string().nullable().optional(),
-    phone: z.string().nullable().optional(),
-    address: z.string().nullable().optional(),
+    telephone: z.string().nullable().optional(),
     linkedin: z.string().nullable().optional(),
-    github: z.string().nullable().optional(),
   }).catch({}),
 
-  profile: z.object({
-    summary: z.string().nullable().optional(),
-    objective: z.string().nullable().optional(),
+  PROFIL: z.object({
+    texte: z.string().nullable().optional(),
   }).catch({}),
 
-  skills: z.object({
-    technical: z.array(SkillItemSchema).catch([]),
-    soft: z.array(SkillItemSchema).catch([]),
-    methodologies: z.array(SkillItemSchema).catch([]),
-    tools: z.array(SkillItemSchema).catch([]),
-  }).catch({ technical: [], soft: [], methodologies: [], tools: [] }),
+  COMPETENCES: z.object({
+    competences_metiers: z.array(z.string()).catch([]),
+    competences_fonctionnelles: z.array(z.string()).catch([]),
+    competences_techniques: z.array(z.string()).catch([]),
+  }).catch({ competences_metiers: [], competences_fonctionnelles: [], competences_techniques: [] }),
 
-  languages: z.array(z.object({
-    language: z.string(),
-    cefr: z.string().nullable().optional(),
-    label: z.string().nullable().optional(),
+  FORMATION: z.array(z.object({
+    titre: z.string().catch(""),
+    annee: z.string().nullable().optional(),
+    lieu_formation: z.string().nullable().optional(),
+    description: z.string().nullable().optional(),
   })).catch([]),
 
-  experiences: z.array(z.object({
-    title: z.string().catch(""),
-    company: z.string().catch(""),
+  LANGUES: z.array(z.object({
+    langue: z.string().catch(""),
+    niveau: z.string().nullable().optional(),
+  })).catch([]),
+
+  EXPERIENCES: z.array(z.object({
     client: z.string().nullable().optional(),
-    startDate: z.string().catch(""),
-    endDate: z.string().nullable().optional(),
-    isCurrent: z.boolean().catch(false),
-    context: z.string().nullable().optional(),
-    achievements: z.string().nullable().optional(),
-    technologies: z.string().nullable().optional(),
-    methods: z.string().nullable().optional(),
-    order: z.number().catch(0),
+    organisation: z.string().catch(""),
+    direction_ou_service: z.string().nullable().optional(),
+    date_debut: z.string().catch(""),
+    date_fin: z.string().nullable().optional(),
+    titre: z.string().catch(""),
+    projet: z.string().nullable().optional(),
+    contexte: z.string().nullable().optional(),
+    realisations: z.array(z.string()).catch([]),
+    environnement_technique: z.object({
+      technologies: z.array(z.string()).catch([]),
+      plateformes: z.array(z.string()).catch([]),
+    }).catch({ technologies: [], plateformes: [] }),
   })).catch([]),
 
-  education: z.array(z.object({
-    degree: z.string().catch(""),
-    fieldOfStudy: z.string().nullable().optional(),
-    school: z.string().catch(""),
-    location: z.string().nullable().optional(),
-    startYear: z.string().nullable().optional(),
-    endYear: z.string().nullable().optional(),
-    level: z.string().nullable().optional(),
-    honors: z.string().nullable().optional(),
-  })).catch([]),
+  SOFT_SKILLS: z.array(z.string()).catch([]),
 
-  certifications: z.array(z.object({
-    name: z.string().catch(""),
-    issuer: z.string().nullable().optional(),
-    date: z.string().nullable().optional(),
-    expirationDate: z.string().nullable().optional(),
-    credentialUrl: z.string().nullable().optional(),
-  })).catch([]),
-
-  privateData: z.object({
-    dateOfBirth: z.string().nullable().optional(),
-    nationality: z.string().nullable().optional(),
-    drivingLicense: z.string().nullable().optional(),
-  }).catch({}),
-
-  parsing: z.object({
-    confidence: z.number().catch(0),
+  PARSING: z.object({
+    source: z.string().nullable().optional(),
     warnings: z.array(z.string()).catch([]),
-    detectedLanguage: z.string().catch("fr"),
-  }).catch({ confidence: 0, warnings: [], detectedLanguage: "fr" }),
+  }).catch({ source: null, warnings: [] }),
 })
 
 export type ParsedCv = z.infer<typeof ParsedCvSchema>
 
-// ─── Prompt système canonique ─────────────────────────────────────────────────
+// ─── Prompt système ───────────────────────────────────────────────────────────
 
-const SYSTEM_PROMPT = `Tu es un moteur d'extraction de CV haute précision, spécialisé pour les ESN et agences de recrutement.
+const SYSTEM_PROMPT = `Tu es un moteur d'extraction de CV haute précision pour une ESN (agence de conseil IT).
+Ta mission : analyser le texte brut du CV et retourner un objet JSON correspondant EXACTEMENT à ce schéma :
 
-MISSION : Analyser le texte brut du CV fourni et retourner un objet JSON canonique structuré.
+{
+  "CONTACT": {
+    "prenom": "prénom du candidat",
+    "nom": "nom de famille du candidat",
+    "titre": "titre professionnel exact tel qu'il apparaît dans le CV",
+    "resume_court": "accroche courte si présente (1-2 phrases), sinon null",
+    "adresse": "ville, pays ou null",
+    "email": "email ou null",
+    "telephone": "téléphone ou null",
+    "linkedin": "URL LinkedIn ou null"
+  },
+  "PROFIL": {
+    "texte": "paragraphe de profil/résumé complet, tel quel, ou null"
+  },
+  "COMPETENCES": {
+    "competences_metiers": ["domaine métier 1", "domaine métier 2"],
+    "competences_fonctionnelles": ["compétence fonctionnelle 1", "analyse des besoins", ...],
+    "competences_techniques": ["Java", "React", "Docker", ...]
+  },
+  "FORMATION": [
+    {
+      "titre": "intitulé du diplôme ou de la formation",
+      "annee": "année d'obtention ou null",
+      "lieu_formation": "établissement ou ville ou null",
+      "description": "mention, spécialité ou null"
+    }
+  ],
+  "LANGUES": [
+    { "langue": "Français", "niveau": "Langue maternelle" },
+    { "langue": "Anglais", "niveau": "B2 - Courant" }
+  ],
+  "EXPERIENCES": [
+    {
+      "client": "nom du client final si différent de l'employeur, sinon null",
+      "organisation": "nom de l'entreprise employeur",
+      "direction_ou_service": "direction, service ou département concerné, sinon null",
+      "date_debut": "date de début (ex: Jan 2022)",
+      "date_fin": "date de fin ou null si poste actuel",
+      "titre": "intitulé exact du poste",
+      "projet": "nom du projet si mentionné, sinon null",
+      "contexte": "description du contexte métier et du poste (1-3 phrases)",
+      "realisations": [
+        "Première réalisation ou mission — une phrase par élément",
+        "Deuxième réalisation",
+        "..."
+      ],
+      "environnement_technique": {
+        "technologies": ["Java", "Spring Boot", "React"],
+        "plateformes": ["AWS", "Docker", "Jira"]
+      }
+    }
+  ],
+  "SOFT_SKILLS": ["Leadership", "Communication", "Rigueur"],
+  "PARSING": {
+    "source": "nom du fichier si connu, sinon null",
+    "warnings": ["liste des ambiguïtés ou informations manquantes"]
+  }
+}
 
 RÈGLES ABSOLUES :
-1. N'invente JAMAIS d'information absente du document — utilise null ou [] si absent
-2. Si une information est ambiguë, ajoute une entrée dans parsing.warnings
-3. Conserve les formulations professionnelles originales sans paraphrase excessive
-4. Les données sensibles (date de naissance, nationalité, situation maritale, permis) → privateData uniquement
-5. Normalise les niveaux de langues en CEFR (A1, A2, B1, B2, C1, C2 ou "native")
-6. EXPÉRIENCES — priorité absolue, à extraire EN PREMIER :
-   - Un bloc expérience = titre de poste + entreprise + dates. Cherche ces blocs dans tout le document.
-   - Sections pouvant les contenir : "Expériences", "Parcours", "Historique", "Experience", "Emplois", "Missions"
-   - CHAQUE poste = 1 objet dans experiences[]. Ne regroupe JAMAIS plusieurs postes.
-   - context : description générale du poste (1-3 lignes). null si absent.
-   - achievements : chaque réalisation/mission sur UNE LIGNE SÉPARÉE par \n (caractère saut de ligne). Exemple : "Assurer le suivi des incidents.\nRédiger les spécifications.\nCoordонner les équipes." — INTERDIT de mettre tout sur une seule ligne. null si aucune réalisation.
-   - Ne déplace PAS le contenu d'une expérience vers skills ou profile.
-   - Si le CV contient à la fois des compétences ET des expériences, les deux tableaux doivent être remplis.
-7. Distingue certifications (avec émetteur officiel) vs formations académiques
-8. Estime seniority basé sur années d'expérience et responsabilités : junior|confirmed|senior|lead|expert|unknown
-9. technologies dans une expérience : uniquement les techs utilisées DANS CE POSTE (liste CSV)
-10. methods : méthodologies utilisées dans le poste (Agile, Scrum, etc.)
-11. NOM DU CANDIDAT — règles strictes :
-    - Le nom est en général sur la PREMIÈRE LIGNE du CV, en gras ou en grande taille.
-    - FORMAT "Prénom NOM_EN_MAJUSCULES" (ex: "Olivier MORA", "Jean-Pierre DUPONT") : c'est le format français standard. firstName = le(s) mot(s) en casse normale ("Olivier"), lastName = le(s) mot(s) tout en majuscules converti en Titre ("MORA" → "Mora").
-    - FORMAT "NOM_EN_MAJUSCULES Prénom" (nom de famille en premier, format Malgache/Africain) : inverser. lastName = premier token converti en Titre, firstName = la suite.
-    - FORMAT tout en majuscules "DUPONT JEAN" : lastName="Dupont", firstName="Jean".
-    - NE JAMAIS utiliser le nom local d'une adresse email comme source du nom du candidat. "moramanana@gmail.com" n'est PAS un nom — ignore-le pour identity.firstName et identity.lastName.
-    - Ne laisse JAMAIS firstName et lastName tous les deux à null ou vide si un nom est visible dans le document.
-    - Si vraiment aucun nom trouvé dans le texte, utilise le nom de fichier s'il t'a été fourni.
-12. TITRE PROFESSIONNEL (headline) — règles strictes :
-    - Le titre est généralement sur la 2e ou 3e ligne du CV, juste sous le nom, en gras.
-    - Extrait-le EXACTEMENT tel qu'il apparaît : "Chef de projet confirmé" → headline="Chef de projet confirmé".
-    - NE RETIRE JAMAIS un mot du titre pour alimenter seniority. seniority est inféré indépendamment.
-    - Exemple complet : "Olivier MORA\nChef de projet confirmé" → firstName="Olivier", lastName="Mora", headline="Chef de projet confirmé", seniority="confirmed".
-    - Si aucun titre explicite dans le document, infère depuis le poste le plus récent ou laisse null.
-
-SCHÉMA JSON ATTENDU (retourne EXACTEMENT cette structure) :
-{
-  "identity": {
-    "firstName": "string|null",
-    "lastName": "string|null",
-    "headline": "titre professionnel extrait ou inféré|null",
-    "seniority": "junior|confirmed|senior|lead|expert|unknown",
-    "yearsOfExperience": "nombre d'années estimé|null"
-  },
-  "contact": {
-    "email": "string|null",
-    "phone": "string|null",
-    "address": "ville, pays|null",
-    "linkedin": "URL LinkedIn|null",
-    "github": "URL GitHub|null"
-  },
-  "profile": {
-    "summary": "résumé professionnel complet|null",
-    "objective": "objectif de carrière si mentionné|null"
-  },
-  "skills": {
-    "technical": [{"name": "compétence", "level": "beginner|intermediate|advanced|expert|null"}],
-    "soft": [{"name": "compétence comportementale"}],
-    "methodologies": [{"name": "méthode ou approche"}],
-    "tools": [{"name": "outil ou logiciel", "level": "null ou niveau"}]
-  },
-  "languages": [
-    {"language": "Français", "cefr": "native", "label": "Langue maternelle"}
-  ],
-  "experiences": [
-    {
-      "title": "string",
-      "company": "string",
-      "client": "nom du client final si différent de l'employeur|null",
-      "startDate": "format libre (ex: Jan 2022)",
-      "endDate": "format libre ou null",
-      "isCurrent": false,
-      "context": "contexte métier et description du poste|null",
-      "achievements": "réalisations mesurables, résultats chiffrés|null",
-      "technologies": "React, Node.js, Docker (liste CSV)|null",
-      "methods": "Agile, Scrum, TDD (liste CSV)|null",
-      "order": 0
-    }
-  ],
-  "education": [
-    {
-      "degree": "intitulé du diplôme",
-      "fieldOfStudy": "spécialité|null",
-      "school": "établissement",
-      "location": "ville|null",
-      "startYear": "null",
-      "endYear": "2020",
-      "level": "bachelor|master|engineer|phd|bootcamp|other|unknown",
-      "honors": "mention|null"
-    }
-  ],
-  "certifications": [
-    {
-      "name": "nom certification",
-      "issuer": "organisme émetteur|null",
-      "date": "date obtention|null",
-      "expirationDate": "date expiration|null",
-      "credentialUrl": "URL|null"
-    }
-  ],
-  "privateData": {
-    "dateOfBirth": "null sauf si clairement indiqué",
-    "nationality": "null sauf si clairement indiqué",
-    "drivingLicense": "null sauf si mentionné"
-  },
-  "parsing": {
-    "confidence": 0.85,
-    "warnings": ["liste des ambiguïtés ou informations manquantes importantes"],
-    "detectedLanguage": "fr|en|other"
-  }
-}`
+1. N'invente JAMAIS d'information absente du document — utilise null ou [] si absent.
+2. CONTACT.prenom et CONTACT.nom — règles strictes :
+   - Le nom est en général sur la PREMIÈRE LIGNE du CV, souvent en gras ou grande taille.
+   - Format "Prénom NOM_EN_MAJUSCULES" (ex: "Olivier MORA") → prenom="Olivier", nom="Mora"
+   - Format "NOM_EN_MAJUSCULES Prénom" (nom de famille en premier) → inverser : nom=premier token, prenom=suite
+   - Format tout en majuscules "JEAN DUPONT" → prenom="Jean", nom="Dupont"
+   - NE JAMAIS utiliser le nom local d'une adresse email comme source du nom. "moramanana@gmail.com" n'est PAS un nom.
+   - Ne laisse JAMAIS prenom ET nom tous les deux vides si un nom est visible dans le document.
+3. CONTACT.titre — règles strictes :
+   - Copie le titre EXACTEMENT tel qu'il apparaît dans le CV, sans couper ni modifier.
+   - Exemple : "Chef de projet confirmé" → titre="Chef de projet confirmé" (ne pas couper "confirmé")
+   - Si aucun titre explicite, infère depuis le poste le plus récent.
+4. EXPERIENCES — priorité absolue :
+   - Chaque poste = 1 objet dans EXPERIENCES[]. Ne regroupe JAMAIS plusieurs postes.
+   - realisations[] = tableau de chaînes. Chaque élément = 1 réalisation/mission. UNE PHRASE PAR ÉLÉMENT.
+   - Ne déplace PAS le contenu d'une expérience vers COMPETENCES.
+   - Si date_fin est null ou absente → le poste est actuel.
+5. COMPETENCES — 3 catégories distinctes :
+   - competences_metiers : domaines métier maîtrisés (ex: "Gestion de projet", "Finance", "Assurance")
+   - competences_fonctionnelles : compétences transversales (ex: "Rédaction de spécifications", "Animation d'ateliers")
+   - competences_techniques : outils et technologies (ex: "Java", "SQL", "Power BI")
+   - Ne pas dupliquer une compétence entre catégories.
+6. Normalise les niveaux de langue en clair (ex: "Bilingue", "Courant - B2", "Notions").
+7. SOFT_SKILLS : qualités humaines et comportementales uniquement.`
 
 const MAX_TEXT_LENGTH = 20_000
 
@@ -215,7 +161,7 @@ export async function parseCvWithAI(rawText: string, fileName?: string): Promise
   const text = rawText.slice(0, MAX_TEXT_LENGTH)
 
   const fileHint = fileName
-    ? `Nom du fichier CV : "${fileName}"\nSi le nom du candidat n'est pas clairement visible dans le texte, extrait-le du nom du fichier (ex: "Olivier-MORA-..." → firstName="Olivier", lastName="Mora").\n\n`
+    ? `Nom du fichier CV : "${fileName}"\n\n`
     : ""
 
   const response = await openai.chat.completions.create({
