@@ -845,59 +845,92 @@ function ilomadExperiencesBlock(cv: CvData, primary: string, secondary: string, 
 
   paras.push(ilomadSectionTitle("EXPÉRIENCES PROFESSIONNELLES", secondary, f))
 
+  const label = (text: string) => new Paragraph({
+    children: [new TextRun({ text, size: 18, bold: true, font: f, color: "333333" })],
+    spacing: { before: 60, after: 30 },
+  })
+
   for (const exp of cv.experiences) {
     const dateStr = exp.endDate
       ? `${exp.startDate} – ${exp.endDate}`
       : exp.isCurrent ? `${exp.startDate} – Présent` : exp.startDate
     const org = exp.client ? exp.client : exp.company
 
-    // Organisation + dates en orange
-    paras.push(new Paragraph({
-      children: [
-        new TextRun({ text: org, size: 20, bold: true, color: secondary, font: f }),
-        new TextRun({ text: "  —  ", size: 17, color: "AAAAAA", font: f }),
-        new TextRun({ text: dateStr, size: 18, bold: true, color: secondary, font: f }),
-      ],
-      spacing: { before: 200, after: 20 },
-    }))
-
-    // Titre du poste en gras foncé (primary)
-    paras.push(new Paragraph({
-      children: [new TextRun({ text: exp.title, size: 21, bold: true, font: f, color: primary })],
-      spacing: { after: 30 },
-    }))
-
-    // Org secondaire si client ≠ employeur
-    if (exp.client && exp.company) {
-      paras.push(new Paragraph({
-        children: [new TextRun({ text: exp.company, size: 17, italics: true, font: f, color: "555555" })],
-        spacing: { after: 30 },
-      }))
-    }
-
-    // Contexte
+    // Extraire "Projet :" et "Service :" du champ context
+    let projet: string | null = null
+    let service: string | null = null
+    const ctxLines: string[] = []
     if (exp.context) {
-      const lines = exp.context.split("\n").filter(Boolean)
-      const ctx = lines.filter(l => !l.startsWith("Projet :") && !l.startsWith("Service :")).join(" ")
-      if (ctx) {
-        paras.push(new Paragraph({
-          children: [new TextRun({ text: ctx, size: 18, font: f, color: "444444" })],
-          spacing: { after: 40 },
-        }))
+      for (const line of exp.context.split("\n").filter(Boolean)) {
+        if (line.startsWith("Projet :")) projet = line.replace("Projet :", "").trim()
+        else if (line.startsWith("Service :")) service = line.replace("Service :", "").trim()
+        else ctxLines.push(line)
       }
     }
 
-    // Réalisations
-    if (exp.achievements) {
-      const bullets = exp.achievements.split("\n").filter(l => l.trim())
-      for (const b of bullets) paras.push(ilomadBullet(b.trim(), f, secondary, "333333"))
+    // Ligne 1 : Nom client — dates (orange bold) + ligne séparatrice bas
+    paras.push(new Paragraph({
+      children: [
+        new TextRun({ text: org, size: 20, bold: true, color: secondary, font: f }),
+        new TextRun({ text: "  —  ", size: 17, color: "BBBBBB", font: f }),
+        new TextRun({ text: dateStr, size: 18, bold: true, color: secondary, font: f }),
+      ],
+      border: { bottom: { style: BorderStyle.SINGLE, size: 2, color: "DDDDDD" } },
+      spacing: { before: 240, after: 60 },
+    }))
+
+    // Ligne 2 : Titre — Projet (gras foncé — project en gris)
+    paras.push(new Paragraph({
+      children: [
+        new TextRun({ text: exp.title, size: 21, bold: true, font: f, color: primary }),
+        ...(projet ? [
+          new TextRun({ text: "  —  ", size: 18, font: f, color: "AAAAAA" }),
+          new TextRun({ text: projet, size: 19, font: f, color: "555555" }),
+        ] : []),
+        ...(service && !projet ? [
+          new TextRun({ text: "  —  ", size: 18, font: f, color: "AAAAAA" }),
+          new TextRun({ text: service, size: 19, font: f, color: "555555" }),
+        ] : []),
+      ],
+      spacing: { after: 60 },
+    }))
+
+    // Organisation employeur (si client ≠ employeur)
+    if (exp.client && exp.company) {
+      paras.push(new Paragraph({
+        children: [new TextRun({ text: exp.company, size: 17, italics: true, font: f, color: "666666" })],
+        spacing: { after: 40 },
+      }))
     }
 
-    // Technologies (italic, gris)
-    if (exp.technologies) {
+    // Contexte :
+    if (ctxLines.length > 0) {
+      paras.push(label("Contexte :"))
       paras.push(new Paragraph({
-        children: [new TextRun({ text: exp.technologies, size: 16, font: f, color: "888888", italics: true })],
-        spacing: { before: 30, after: 60 },
+        children: [new TextRun({ text: ctxLines.join(" "), size: 18, font: f, color: "444444" })],
+        spacing: { after: 60 },
+      }))
+    }
+
+    // Réalisations :
+    if (exp.achievements) {
+      const bullets = exp.achievements.split("\n").filter(l => l.trim())
+      if (bullets.length > 0) {
+        paras.push(label("Réalisations :"))
+        for (const b of bullets) paras.push(ilomadBullet(b.trim(), f, secondary, "333333"))
+      }
+    }
+
+    // Environnement technique :
+    if (exp.technologies) {
+      const techs = exp.technologies.split(", ").map(t => t.trim()).filter(Boolean)
+      paras.push(label("Environnement technique :"))
+      paras.push(new Paragraph({
+        children: techs.flatMap((t, i) => [
+          ...(i > 0 ? [new TextRun({ text: " · ", size: 17, color: secondary, font: f, bold: true })] : []),
+          new TextRun({ text: t, size: 17, font: f, color: "555555" }),
+        ]),
+        spacing: { after: 80 },
       }))
     }
   }
