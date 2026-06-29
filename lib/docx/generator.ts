@@ -750,127 +750,134 @@ function ilomadBullet(text: string, f: string, bulletColor = "444444", textColor
   })
 }
 
-// Colonne gauche — fond sombre (primary), texte blanc, accents orange (secondary)
-function ilomadLeftColumn(cv: CvData, primary: string, secondary: string, f: string): Paragraph[] {
-  const WHITE = "FFFFFF"
-  const paras: Paragraph[] = []
+// Section COMPÉTENCES pleine largeur avec 2 sous-colonnes internes
+function ilomadCompetencesBlock(cv: CvData, primary: string, secondary: string, f: string): DocChildren {
+  const result: DocChildren = []
 
   const functional = cv.skills.filter((s) => s.category === "methodology")
   const metier     = cv.skills.filter((s) => s.category === "tool")
   const technical  = cv.skills.filter((s) => s.category === "technical")
   const soft       = cv.skills.filter((s) => s.category === "soft")
 
+  if (functional.length + metier.length + technical.length + soft.length === 0) return result
+
+  result.push(ilomadSectionTitle("COMPÉTENCES", secondary, f))
+
   const skillBullet = (name: string) => new Paragraph({
     children: [
-      new TextRun({ text: "• ", size: 19, bold: true, color: secondary, font: f }),
-      new TextRun({ text: name, size: 18, font: f, color: WHITE }),
+      new TextRun({ text: "• ", size: 18, bold: true, color: secondary, font: f }),
+      new TextRun({ text: name, size: 18, font: f }),
     ],
     indent: { left: 80 },
     spacing: { after: 50 },
   })
 
-  if (functional.length + metier.length + technical.length + soft.length > 0) {
-    // Titre section : orange sur fond sombre
-    paras.push(ilomadSectionTitle("COMPÉTENCES", secondary, f, secondary))
-    if (functional.length > 0) {
-      paras.push(ilomadSubTitle("COMPÉTENCES FONCTIONNELLES", WHITE, f))
-      paras.push(...functional.map((s) => skillBullet(s.name)))
-    }
-    if (metier.length > 0) {
-      paras.push(ilomadSubTitle("DOMAINES MÉTIERS", WHITE, f))
-      paras.push(...metier.map((s) => skillBullet(s.name)))
-    }
-    if (technical.length > 0) {
-      paras.push(ilomadSubTitle("COMPÉTENCES TECHNIQUES", WHITE, f))
-      paras.push(...technical.map((s) => skillBullet(s.name)))
-    }
-    if (soft.length > 0) {
-      paras.push(ilomadSubTitle("SOFT SKILLS", WHITE, f))
-      paras.push(...soft.map((s) => skillBullet(s.name)))
-    }
+  const leftParas: Paragraph[] = []
+  if (functional.length > 0) {
+    leftParas.push(ilomadSubTitle("COMPÉTENCES FONCTIONNELLES", primary, f))
+    leftParas.push(...functional.map((s) => skillBullet(s.name)))
+  }
+  if (metier.length > 0) {
+    leftParas.push(ilomadSubTitle("DOMAINES MÉTIERS", primary, f))
+    leftParas.push(...metier.map((s) => skillBullet(s.name)))
+  }
+  if (soft.length > 0) {
+    leftParas.push(ilomadSubTitle("SOFT SKILLS", primary, f))
+    leftParas.push(...soft.map((s) => skillBullet(s.name)))
   }
 
-  // Contact (email/tél/adresse non affiché dans l'en-tête)
-  if (cv.contact?.address || cv.contact?.linkedin) {
-    paras.push(ilomadSectionTitle("CONTACT", secondary, f, secondary))
-    if (cv.contact.address) {
-      paras.push(new Paragraph({ children: [new TextRun({ text: cv.contact.address, size: 17, color: "CCCCCC", font: f })], spacing: { after: 50 } }))
-    }
-    if (cv.contact.linkedin) {
-      paras.push(new Paragraph({ children: [new TextRun({ text: cv.contact.linkedin.replace(/https?:\/\//, ""), size: 17, color: "CCCCCC", font: f })], spacing: { after: 50 } }))
-    }
+  const rightParas: Paragraph[] = []
+  if (technical.length > 0) {
+    rightParas.push(ilomadSubTitle("COMPÉTENCES TECHNIQUES", primary, f))
+    rightParas.push(...technical.map((s) => skillBullet(s.name)))
   }
 
-  paras.push(new Paragraph({ children: [new TextRun("")], spacing: { after: 200 } }))
-  return paras
+  // Au moins un para vide pour que la cellule existe
+  if (leftParas.length === 0) leftParas.push(new Paragraph({ children: [new TextRun("")] }))
+  if (rightParas.length === 0) rightParas.push(new Paragraph({ children: [new TextRun("")] }))
+
+  result.push(new Table({
+    width: { size: 100, type: WidthType.PERCENTAGE },
+    borders: TABLE_BORDERS,
+    rows: [new TableRow({
+      children: [
+        new TableCell({ children: leftParas, width: { size: 50, type: WidthType.PERCENTAGE }, borders: TABLE_BORDERS, margins: { top: 0, bottom: 80, left: 0, right: 300 } }),
+        new TableCell({ children: rightParas, width: { size: 50, type: WidthType.PERCENTAGE }, borders: TABLE_BORDERS, margins: { top: 0, bottom: 80, left: 300, right: 0 } }),
+      ],
+    })],
+  }))
+
+  return result
 }
 
-// Colonne droite — fond blanc, PROFIL + EXPÉRIENCES
-function ilomadRightColumn(cv: CvData, primary: string, secondary: string, f: string): Paragraph[] {
+// Section EXPÉRIENCES pleine largeur
+function ilomadExperiencesBlock(cv: CvData, primary: string, secondary: string, f: string): Paragraph[] {
+  if (cv.experiences.length === 0) return []
   const paras: Paragraph[] = []
 
-  // PROFIL
-  if (cv.contact?.profileText) {
-    paras.push(ilomadSectionTitle("PROFIL", secondary, f))
+  paras.push(ilomadSectionTitle("EXPÉRIENCES PROFESSIONNELLES", secondary, f))
+
+  for (const exp of cv.experiences) {
+    const dateStr = exp.endDate
+      ? `${exp.startDate} – ${exp.endDate}`
+      : exp.isCurrent ? `${exp.startDate} – Présent` : exp.startDate
+    const org = exp.client ? exp.client : exp.company
+
+    // Organisation + dates en orange
     paras.push(new Paragraph({
-      children: [new TextRun({ text: cv.contact.profileText, size: 19, font: f, color: "222222" })],
-      spacing: { after: 120 },
+      children: [
+        new TextRun({ text: org, size: 20, bold: true, color: secondary, font: f }),
+        new TextRun({ text: "  —  ", size: 17, color: "AAAAAA", font: f }),
+        new TextRun({ text: dateStr, size: 18, bold: true, color: secondary, font: f }),
+      ],
+      spacing: { before: 200, after: 20 },
     }))
-  }
 
-  // EXPÉRIENCES
-  if (cv.experiences.length > 0) {
-    paras.push(ilomadSectionTitle("EXPÉRIENCES PROFESSIONNELLES", secondary, f))
-    for (const exp of cv.experiences) {
-      const dateStr = exp.endDate ? `${exp.startDate} — ${exp.endDate}` : exp.isCurrent ? `${exp.startDate} — Présent` : exp.startDate
-      const org = exp.client ? exp.client : exp.company
+    // Titre du poste en gras foncé (primary)
+    paras.push(new Paragraph({
+      children: [new TextRun({ text: exp.title, size: 21, bold: true, font: f, color: primary })],
+      spacing: { after: 30 },
+    }))
 
-      // Org + date en orange (secondary)
+    // Org secondaire si client ≠ employeur
+    if (exp.client && exp.company) {
       paras.push(new Paragraph({
-        children: [
-          new TextRun({ text: org, size: 19, bold: true, color: secondary, font: f }),
-          new TextRun({ text: "  —  ", size: 17, color: "999999", font: f }),
-          new TextRun({ text: dateStr, size: 18, bold: true, color: secondary, font: f }),
-        ],
-        spacing: { before: 200, after: 20 },
-      }))
-      // Titre du poste en gras foncé
-      paras.push(new Paragraph({
-        children: [new TextRun({ text: exp.title, size: 21, bold: true, font: f, color: primary })],
+        children: [new TextRun({ text: exp.company, size: 17, italics: true, font: f, color: "555555" })],
         spacing: { after: 30 },
       }))
-      // Org secondaire (client ≠ employeur)
-      if (exp.client && exp.company) {
+    }
+
+    // Contexte
+    if (exp.context) {
+      const lines = exp.context.split("\n").filter(Boolean)
+      const ctx = lines.filter(l => !l.startsWith("Projet :") && !l.startsWith("Service :")).join(" ")
+      if (ctx) {
         paras.push(new Paragraph({
-          children: [new TextRun({ text: exp.company, size: 17, italics: true, font: f, color: "555555" })],
-          spacing: { after: 30 },
+          children: [new TextRun({ text: ctx, size: 18, font: f, color: "444444" })],
+          spacing: { after: 40 },
         }))
       }
-      // Contexte
-      if (exp.context) {
-        const lines = exp.context.split("\n").filter(Boolean)
-        const ctx = lines.filter(l => !l.startsWith("Projet :") && !l.startsWith("Service :")).join(" ")
-        if (ctx) paras.push(new Paragraph({ children: [new TextRun({ text: ctx, size: 18, font: f, color: "444444" })], spacing: { after: 40 } }))
-      }
-      // Réalisations
-      if (exp.achievements) {
-        const bullets = exp.achievements.split("\n").filter(l => l.trim())
-        for (const b of bullets) paras.push(ilomadBullet(b.trim(), f, secondary, "333333"))
-      }
-      // Technologies
-      if (exp.technologies) {
-        paras.push(new Paragraph({
-          children: [new TextRun({ text: exp.technologies, size: 16, font: f, color: "777777", italics: true })],
-          spacing: { before: 30, after: 60 },
-        }))
-      }
+    }
+
+    // Réalisations
+    if (exp.achievements) {
+      const bullets = exp.achievements.split("\n").filter(l => l.trim())
+      for (const b of bullets) paras.push(ilomadBullet(b.trim(), f, secondary, "333333"))
+    }
+
+    // Technologies (italic, gris)
+    if (exp.technologies) {
+      paras.push(new Paragraph({
+        children: [new TextRun({ text: exp.technologies, size: 16, font: f, color: "888888", italics: true })],
+        spacing: { before: 30, after: 60 },
+      }))
     }
   }
 
   return paras
 }
 
-// Section bas de page — FORMATION | LANGUES sur fond légèrement coloré
+// Section bas — FORMATION | LANGUES sur fond légèrement teinté
 function ilomadBottomSection(cv: CvData, primary: string, secondary: string, f: string): Table {
   const formParas: Paragraph[] = []
   const langParas: Paragraph[] = []
@@ -905,17 +912,16 @@ function ilomadBottomSection(cv: CvData, primary: string, secondary: string, f: 
     }))
   }
 
-  const bottomBg = { type: ShadingType.CLEAR, color: "auto", fill: "F5F6F8" }
-  const cellBorder = TABLE_BORDERS
-  const cellMarg = { top: 160, bottom: 160, left: 240, right: 240 }
+  const bg = { type: ShadingType.CLEAR, color: "auto", fill: "F5F6F8" }
+  const marg = { top: 160, bottom: 160, left: 240, right: 240 }
 
   return new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: TABLE_BORDERS,
     rows: [new TableRow({
       children: [
-        new TableCell({ children: formParas, width: { size: 60, type: WidthType.PERCENTAGE }, shading: bottomBg, margins: cellMarg, borders: cellBorder }),
-        new TableCell({ children: langParas, width: { size: 40, type: WidthType.PERCENTAGE }, shading: bottomBg, margins: cellMarg, borders: cellBorder }),
+        new TableCell({ children: formParas, width: { size: 60, type: WidthType.PERCENTAGE }, shading: bg, margins: marg, borders: TABLE_BORDERS }),
+        new TableCell({ children: langParas, width: { size: 40, type: WidthType.PERCENTAGE }, shading: bg, margins: marg, borders: TABLE_BORDERS }),
       ],
     })],
   })
@@ -927,33 +933,25 @@ function templateIlomad(cv: CvData, b: BrandingData, ss: SectionSettings | null,
   const f = b.fontFamily
   const children: DocChildren = []
 
-  // 1. En-tête pleine largeur
+  // 1. En-tête pleine largeur (fond sombre)
   children.push(ilomadHeaderTable(cv, b, photo, logo, bs))
 
-  // 2. Corps 2 colonnes : gauche foncé (compétences) | droite blanc (profil + expériences)
-  children.push(new Table({
-    width: { size: 100, type: WidthType.PERCENTAGE },
-    borders: TABLE_BORDERS,
-    rows: [new TableRow({
-      children: [
-        new TableCell({
-          children: ilomadLeftColumn(cv, primary, secondary, f),
-          width: { size: 33, type: WidthType.PERCENTAGE },
-          shading: { type: ShadingType.CLEAR, color: "auto", fill: primary },
-          margins: { top: 160, bottom: 160, left: 240, right: 240 },
-          borders: TABLE_BORDERS,
-        }),
-        new TableCell({
-          children: ilomadRightColumn(cv, primary, secondary, f),
-          width: { size: 67, type: WidthType.PERCENTAGE },
-          margins: { top: 160, bottom: 160, left: 280, right: 240 },
-          borders: TABLE_BORDERS,
-        }),
-      ],
-    })],
-  }))
+  // 2. PROFIL (pleine largeur)
+  if (cv.contact?.profileText) {
+    children.push(ilomadSectionTitle("PROFIL", secondary, f))
+    children.push(new Paragraph({
+      children: [new TextRun({ text: cv.contact.profileText, size: 19, font: f, color: "222222" })],
+      spacing: { after: 120 },
+    }))
+  }
 
-  // 3. Bas de page : Formation | Langues
+  // 3. COMPÉTENCES (pleine largeur, 2 sous-colonnes internes)
+  children.push(...ilomadCompetencesBlock(cv, primary, secondary, f))
+
+  // 4. EXPÉRIENCES PROFESSIONNELLES (pleine largeur)
+  children.push(...ilomadExperiencesBlock(cv, primary, secondary, f))
+
+  // 5. FORMATION & LANGUES (2 sous-colonnes, fond gris clair)
   if (cv.educations.length > 0 || cv.languages.length > 0) {
     children.push(ilomadBottomSection(cv, primary, secondary, f))
   }
