@@ -754,12 +754,14 @@ function ilomadBullet(text: string, f: string, bulletColor = "444444", textColor
 function ilomadCompetencesBlock(cv: CvData, primary: string, secondary: string, f: string): DocChildren {
   const result: DocChildren = []
 
-  const functional = cv.skills.filter((s) => s.category === "methodology")
-  const metier     = cv.skills.filter((s) => s.category === "tool")
-  const technical  = cv.skills.filter((s) => s.category === "technical")
-  const soft       = cv.skills.filter((s) => s.category === "soft")
+  const functional     = cv.skills.filter((s) => s.category === "methodology")
+  const metier         = cv.skills.filter((s) => s.category === "tool")
+  const technicalGroup = cv.skills.filter((s) => s.category === "technical_group")
+  const technicalFlat  = cv.skills.filter((s) => s.category === "technical")
+  const soft           = cv.skills.filter((s) => s.category === "soft")
 
-  if (functional.length + metier.length + technical.length + soft.length === 0) return result
+  const hasAny = functional.length + metier.length + technicalGroup.length + technicalFlat.length + soft.length > 0
+  if (!hasAny) return result
 
   result.push(ilomadSectionTitle("COMPÉTENCES", secondary, f))
 
@@ -772,6 +774,7 @@ function ilomadCompetencesBlock(cv: CvData, primary: string, secondary: string, 
     spacing: { after: 50 },
   })
 
+  // Colonne gauche : fonctionnelles + métiers + soft
   const leftParas: Paragraph[] = []
   if (functional.length > 0) {
     leftParas.push(ilomadSubTitle("COMPÉTENCES FONCTIONNELLES", primary, f))
@@ -786,13 +789,38 @@ function ilomadCompetencesBlock(cv: CvData, primary: string, secondary: string, 
     leftParas.push(...soft.map((s) => skillBullet(s.name)))
   }
 
+  // Colonne droite : techniques (groupées ou plates)
   const rightParas: Paragraph[] = []
-  if (technical.length > 0) {
+  if (technicalGroup.length > 0 || technicalFlat.length > 0) {
     rightParas.push(ilomadSubTitle("COMPÉTENCES TECHNIQUES", primary, f))
-    rightParas.push(...technical.map((s) => skillBullet(s.name)))
+
+    if (technicalGroup.length > 0) {
+      // Rendu groupé : nom du groupe en couleur secondaire + items en ligne
+      for (const g of technicalGroup) {
+        const items = (g.level ?? g.name).split(" | ").map(s => s.trim()).filter(Boolean)
+
+        // Nom du groupe — couleur secondaire, italique, petit
+        rightParas.push(new Paragraph({
+          children: [new TextRun({ text: g.name, size: 17, bold: true, italics: true, color: secondary, font: f })],
+          spacing: { before: 80, after: 20 },
+        }))
+
+        // Items sur une ligne, séparés par des espaces
+        rightParas.push(new Paragraph({
+          children: items.flatMap((item, i) => [
+            ...(i > 0 ? [new TextRun({ text: "   ", size: 17, font: f })] : []),
+            new TextRun({ text: item, size: 17, font: f, color: "222222" }),
+          ]),
+          indent: { left: 80 },
+          spacing: { after: 50 },
+        }))
+      }
+    } else {
+      // Fallback : liste à puces classique
+      rightParas.push(...technicalFlat.map((s) => skillBullet(s.name)))
+    }
   }
 
-  // Au moins un para vide pour que la cellule existe
   if (leftParas.length === 0) leftParas.push(new Paragraph({ children: [new TextRun("")] }))
   if (rightParas.length === 0) rightParas.push(new Paragraph({ children: [new TextRun("")] }))
 

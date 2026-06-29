@@ -24,7 +24,12 @@ const ParsedCvSchema = z.object({
   COMPETENCES: z.object({
     competences_metiers: z.array(z.string()).catch([]),
     competences_fonctionnelles: z.array(z.string()).catch([]),
-    competences_techniques: z.array(z.string()).catch([]),
+    competences_techniques: z.array(
+      z.object({
+        groupe: z.string().catch(""),
+        items: z.array(z.string()).catch([]),
+      })
+    ).catch([]),
   }).catch({ competences_metiers: [], competences_fonctionnelles: [], competences_techniques: [] }),
 
   FORMATION: z.array(z.object({
@@ -86,8 +91,14 @@ Ta mission : analyser le texte brut du CV et retourner un objet JSON corresponda
   },
   "COMPETENCES": {
     "competences_metiers": ["domaine métier 1", "domaine métier 2"],
-    "competences_fonctionnelles": ["compétence fonctionnelle 1", "analyse des besoins", ...],
-    "competences_techniques": ["Java", "React", "Docker", ...]
+    "competences_fonctionnelles": ["compétence fonctionnelle 1", "analyse des besoins"],
+    "competences_techniques": [
+      { "groupe": "Langages", "items": ["Java 8 / JEE", "C / C++", "Python", "JavaScript"] },
+      { "groupe": "Frameworks", "items": ["Spring MVC", "Hibernate", "Angular"] },
+      { "groupe": "SGBD", "items": ["Oracle", "MySQL", "PostgreSQL"] },
+      { "groupe": "Outils", "items": ["Git", "Jenkins", "Docker"] },
+      { "groupe": "Méthodes", "items": ["AGILE (Scrum, Kanban)", "PERT"] }
+    ]
   },
   "FORMATION": [
     {
@@ -150,7 +161,9 @@ RÈGLES ABSOLUES :
 5. COMPETENCES — 3 catégories distinctes :
    - competences_metiers : domaines métier maîtrisés (ex: "Gestion de projet", "Finance", "Assurance")
    - competences_fonctionnelles : compétences transversales (ex: "Rédaction de spécifications", "Animation d'ateliers")
-   - competences_techniques : outils et technologies (ex: "Java", "SQL", "Power BI")
+   - competences_techniques : TOUJOURS un tableau de groupes { groupe, items }. Chaque groupe = une famille technologique.
+     Groupes typiques (adapter au contenu) : Langages, Frameworks, SGBD, Serveurs, Outils, Méthodes, IA & Automatisation, Cloud, Front-end, Back-end.
+     Si le CV ne structure pas par groupe, inférer la catégorie la plus pertinente pour chaque techno.
    - Ne pas dupliquer une compétence entre catégories.
 6. Normalise les niveaux de langue en clair (ex: "Bilingue", "Courant - B2", "Notions").
 7. SOFT_SKILLS : qualités humaines et comportementales uniquement.`

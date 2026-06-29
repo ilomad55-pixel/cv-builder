@@ -70,16 +70,24 @@ export async function POST(
   }
 
   // ─── Mapping compétences → catégories Prisma ─────────────────────────────
-  // competences_techniques → "technical"
+  // competences_techniques  → "technical_group" (nom=groupe, level="item1 | item2 | ...")
   // competences_fonctionnelles → "methodology"
   // competences_metiers → "tool"
   // SOFT_SKILLS → "soft"
-  const skillRows = [
-    ...parsed.COMPETENCES.competences_techniques.map((name, i) => ({ name, category: "technical", order: i })),
-    ...parsed.COMPETENCES.competences_fonctionnelles.map((name, i) => ({ name, category: "methodology", order: i })),
-    ...parsed.COMPETENCES.competences_metiers.map((name, i) => ({ name, category: "tool", order: i })),
-    ...parsed.SOFT_SKILLS.map((name, i) => ({ name, category: "soft", order: i })),
-  ].map(s => ({ ...s, cvId: cv.id, level: null, display: true }))
+  const skillRows: Array<{ name: string; category: string; order: number; cvId: string; level: string | null; display: boolean }> = [
+    // Groupes techniques : 1 row par groupe, items encodés dans level
+    ...parsed.COMPETENCES.competences_techniques.map((g, i) => ({
+      name: g.groupe,
+      category: "technical_group",
+      level: g.items.filter(Boolean).join(" | ") || null,
+      order: i,
+      cvId: cv.id,
+      display: true,
+    })),
+    ...parsed.COMPETENCES.competences_fonctionnelles.map((name, i) => ({ name, category: "methodology", order: i, cvId: cv.id, level: null, display: true })),
+    ...parsed.COMPETENCES.competences_metiers.map((name, i) => ({ name, category: "tool", order: i, cvId: cv.id, level: null, display: true })),
+    ...parsed.SOFT_SKILLS.map((name, i) => ({ name, category: "soft", order: i, cvId: cv.id, level: null, display: true })),
+  ]
 
   // ─── Écriture en transaction ──────────────────────────────────────────────
   await prisma.$transaction(async (tx) => {
@@ -189,7 +197,7 @@ export async function POST(
   }
 
   const totalSkills =
-    parsed.COMPETENCES.competences_techniques.length +
+    parsed.COMPETENCES.competences_techniques.reduce((acc, g) => acc + g.items.length, 0) +
     parsed.COMPETENCES.competences_fonctionnelles.length +
     parsed.COMPETENCES.competences_metiers.length
 
