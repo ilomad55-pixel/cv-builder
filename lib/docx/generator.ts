@@ -59,6 +59,7 @@ export interface CvData {
 export interface BrandingData {
   companyName: string
   primaryColor: string
+  secondaryColor?: string
   fontFamily: string
 }
 
@@ -717,19 +718,20 @@ function ilomadSubTitle(text: string, c: string, f: string): Paragraph {
   })
 }
 
-function ilomadBullet(text: string, f: string): Paragraph {
+function ilomadBullet(text: string, f: string, bulletColor = "444444"): Paragraph {
   return new Paragraph({
-    children: [new TextRun({ text: "•  ", size: 19, bold: true, font: f }), new TextRun({ text, size: 19, font: f })],
+    children: [new TextRun({ text: "•  ", size: 19, bold: true, font: f, color: bulletColor }), new TextRun({ text, size: 19, font: f })],
     indent: { left: 100 },
     spacing: { after: 50 },
   })
 }
 
-function ilomadLeftColumn(cv: CvData, c: string, f: string): Paragraph[] {
+function ilomadLeftColumn(cv: CvData, primary: string, secondary: string, f: string): Paragraph[] {
+  const c = primary
   const paras: Paragraph[] = []
 
   // CONTACT
-  paras.push(ilomadSectionTitle("CONTACT", c, f))
+  paras.push(ilomadSectionTitle("CONTACT", secondary, f))
   const contactItems: [string, string][] = [
     ["✉", cv.contact?.email ?? ""],
     ["☎", cv.contact?.phone ?? ""],
@@ -744,11 +746,11 @@ function ilomadLeftColumn(cv: CvData, c: string, f: string): Paragraph[] {
 
   // FORMATION
   if (cv.educations.length > 0) {
-    paras.push(ilomadSectionTitle("FORMATION", c, f))
+    paras.push(ilomadSectionTitle("FORMATION", secondary, f))
     for (const edu of cv.educations) {
       const dateStr = [edu.startYear, edu.endYear].filter(Boolean).join(" - ")
       if (dateStr) paras.push(new Paragraph({ children: [new TextRun({ text: dateStr, size: 18, color: "888888", font: f })], spacing: { after: 20 } }))
-      paras.push(new Paragraph({ children: [new TextRun({ text: edu.degree, size: 20, bold: true, color: c, font: f })], spacing: { after: 20 } }))
+      paras.push(new Paragraph({ children: [new TextRun({ text: edu.degree, size: 20, bold: true, color: secondary, font: f })], spacing: { after: 20 } }))
       if (edu.school) paras.push(new Paragraph({ children: [new TextRun({ text: edu.school, size: 18, italics: true, font: f })], spacing: { after: edu.honors ? 20 : 120 } }))
       if (edu.honors) paras.push(new Paragraph({ children: [new TextRun({ text: edu.honors, size: 18, font: f, color: "666666" })], spacing: { after: 120 } }))
     }
@@ -757,11 +759,11 @@ function ilomadLeftColumn(cv: CvData, c: string, f: string): Paragraph[] {
   // SKILLS | EXTRAS (soft skills)
   const soft = cv.skills.filter((s) => s.category === "soft")
   if (soft.length > 0) {
-    paras.push(ilomadSectionTitle("SKILLS | EXTRAS", c, f))
+    paras.push(ilomadSectionTitle("SKILLS | EXTRAS", secondary, f))
     for (const s of soft) {
       paras.push(new Paragraph({
         children: [
-          new TextRun({ text: "•  ", size: 19, bold: true, color: c, font: f }),
+          new TextRun({ text: "•  ", size: 19, bold: true, color: secondary, font: f }),
           new TextRun({ text: s.name, size: 19, bold: true, font: f }),
           ...(s.level ? [new TextRun({ text: ` — ${s.level}`, size: 19, font: f })] : []),
         ],
@@ -773,7 +775,7 @@ function ilomadLeftColumn(cv: CvData, c: string, f: string): Paragraph[] {
 
   // LANGUES
   if (cv.languages.length > 0) {
-    paras.push(ilomadSectionTitle("LANGUES", c, f))
+    paras.push(ilomadSectionTitle("LANGUES", secondary, f))
     for (const lang of cv.languages) {
       const level = lang.levelLabel || lang.cefrLevel
       paras.push(new Paragraph({
@@ -790,7 +792,8 @@ function ilomadLeftColumn(cv: CvData, c: string, f: string): Paragraph[] {
   return paras
 }
 
-function ilomadRightColumn(cv: CvData, c: string, f: string): Paragraph[] {
+function ilomadRightColumn(cv: CvData, primary: string, secondary: string, f: string): Paragraph[] {
+  const c = primary
   const paras: Paragraph[] = []
 
   const functional = cv.skills.filter((s) => s.category === "methodology")
@@ -798,61 +801,65 @@ function ilomadRightColumn(cv: CvData, c: string, f: string): Paragraph[] {
   const technical  = cv.skills.filter((s) => s.category === "technical")
 
   if (functional.length + metier.length + technical.length > 0) {
-    paras.push(ilomadSectionTitle("COMPÉTENCE", c, f))
+    paras.push(ilomadSectionTitle("COMPÉTENCES", secondary, f))
 
-    const renderSkillLine = (skills: typeof functional) =>
-      new Paragraph({
-        children: skills.flatMap((s, i) => [
-          ...(i > 0 ? [new TextRun({ text: "  ·  ", size: 19, font: f, color: "AAAAAA" })] : []),
-          new TextRun({ text: s.name, size: 19, font: f }),
-        ]),
-        spacing: { after: 80 },
-      })
+    const renderSkillList = (skills: typeof functional) =>
+      skills.map(s => new Paragraph({
+        children: [new TextRun({ text: "•  ", size: 19, font: f, color: secondary }), new TextRun({ text: s.name, size: 19, font: f })],
+        indent: { left: 80 },
+        spacing: { after: 40 },
+      }))
 
-    if (functional.length > 0) { paras.push(ilomadSubTitle("COMPÉTENCES FONCTIONNELLES", c, f)); paras.push(renderSkillLine(functional)) }
-    if (metier.length > 0)     { paras.push(ilomadSubTitle("COMPÉTENCES MÉTIERS", c, f));     paras.push(renderSkillLine(metier)) }
-    if (technical.length > 0)  { paras.push(ilomadSubTitle("COMPÉTENCES TECHNIQUES", c, f));  paras.push(renderSkillLine(technical)) }
+    if (functional.length > 0) { paras.push(ilomadSubTitle("COMPÉTENCES FONCTIONNELLES", c, f)); paras.push(...renderSkillList(functional)) }
+    if (metier.length > 0)     { paras.push(ilomadSubTitle("DOMAINES MÉTIERS", c, f));            paras.push(...renderSkillList(metier)) }
+    if (technical.length > 0)  { paras.push(ilomadSubTitle("COMPÉTENCES TECHNIQUES", c, f));     paras.push(...renderSkillList(technical)) }
   }
 
   // EXPÉRIENCES
   if (cv.experiences.length > 0) {
-    paras.push(ilomadSectionTitle("EXPÉRIENCES PROFESSIONNELLES", c, f))
+    paras.push(ilomadSectionTitle("EXPÉRIENCES PROFESSIONNELLES", secondary, f))
     for (const exp of cv.experiences) {
-      const dateStr = exp.endDate ? `${exp.startDate} - ${exp.endDate}` : exp.isCurrent ? `${exp.startDate} - Présent` : exp.startDate
-      const firstLine = exp.client ? exp.client : exp.company
+      const dateStr = exp.endDate ? `${exp.startDate} — ${exp.endDate}` : exp.isCurrent ? `${exp.startDate} — Présent` : exp.startDate
+      const org = exp.client ? exp.client : exp.company
 
-      // Titre
-      paras.push(new Paragraph({ children: [new TextRun({ text: exp.title.toUpperCase(), size: 22, bold: true, font: f })], spacing: { before: 240, after: 40 } }))
-      // Client / org + dates
-      paras.push(new Paragraph({ children: [new TextRun({ text: `${firstLine}, ${dateStr}`, size: 20, bold: true, color: c, font: f })], spacing: { after: 40 } }))
-      // Entreprise si client ≠ organisation
+      // Entreprise — dates (en couleur secondaire)
+      paras.push(new Paragraph({
+        children: [
+          new TextRun({ text: org, size: 20, bold: true, color: c, font: f }),
+          new TextRun({ text: `  —  `, size: 18, font: f, color: "AAAAAA" }),
+          new TextRun({ text: dateStr, size: 19, bold: true, color: secondary, font: f }),
+        ],
+        spacing: { before: 220, after: 30 },
+      }))
+      // Titre du poste
+      paras.push(new Paragraph({ children: [new TextRun({ text: exp.title, size: 22, bold: true, font: f, color: "1A1A1A" })], spacing: { after: 30 } }))
+      // Si client ≠ organisation, afficher l'organisation en dessous
       if (exp.client && exp.company) {
         paras.push(new Paragraph({ children: [new TextRun({ text: exp.company, size: 18, italics: true, font: f, color: "666666" })], spacing: { after: 40 } }))
       }
 
-      // Contexte — extrait "Projet :" et "Service :" du champ context
+      // Contexte
       if (exp.context) {
         const lines = exp.context.split("\n").filter(Boolean)
         const projet  = lines.find(l => l.startsWith("Projet :"))
         const service = lines.find(l => l.startsWith("Service :"))
         const ctx     = lines.filter(l => !l.startsWith("Projet :") && !l.startsWith("Service :")).join(" ")
-        if (projet)  paras.push(new Paragraph({ children: [new TextRun({ text: projet,  size: 19, bold: true, italics: true, font: f, color: "444444" })], spacing: { after: 40 } }))
-        if (service) paras.push(new Paragraph({ children: [new TextRun({ text: service, size: 18, font: f, color: "666666" })], spacing: { after: 40 } }))
-        if (ctx)     paras.push(new Paragraph({ children: [new TextRun({ text: "Contexte : ", size: 19, bold: true, font: f }), new TextRun({ text: ctx, size: 19, font: f })], spacing: { after: 60 } }))
+        if (projet)  paras.push(new Paragraph({ children: [new TextRun({ text: projet, size: 19, bold: true, italics: true, font: f, color: "444444" })], spacing: { after: 30 } }))
+        if (service) paras.push(new Paragraph({ children: [new TextRun({ text: service, size: 18, font: f, color: "666666" })], spacing: { after: 30 } }))
+        if (ctx)     paras.push(new Paragraph({ children: [new TextRun({ text: ctx, size: 19, font: f })], spacing: { after: 50 } }))
       }
 
       // Réalisations
       if (exp.achievements) {
         const bullets = exp.achievements.split("\n").filter(l => l.trim())
         if (bullets.length > 0) {
-          paras.push(new Paragraph({ children: [new TextRun({ text: "Réalisations :", size: 19, bold: true, font: f })], spacing: { after: 40 } }))
-          for (const b of bullets) paras.push(ilomadBullet(b.trim(), f))
+          for (const b of bullets) paras.push(ilomadBullet(b.trim(), f, secondary))
         }
       }
 
       // Environnement technique
       if (exp.technologies) {
-        paras.push(new Paragraph({ children: [new TextRun({ text: "Environnement technique : ", size: 18, bold: true, font: f, color: "555555" }), new TextRun({ text: exp.technologies, size: 18, font: f, color: "555555" })], spacing: { before: 60, after: 80 } }))
+        paras.push(new Paragraph({ children: [new TextRun({ text: exp.technologies, size: 17, font: f, color: "777777", italics: true })], spacing: { before: 40, after: 60 } }))
       }
     }
   }
@@ -861,24 +868,29 @@ function ilomadRightColumn(cv: CvData, c: string, f: string): Paragraph[] {
 }
 
 function templateIlomad(cv: CvData, b: BrandingData, ss: SectionSettings | null, logo: Buffer | null, photo: Buffer | null, bs: BlockSettings | null): Document {
-  const c = hex(b.primaryColor)
+  const primary = hex(b.primaryColor)
+  // Couleur secondaire = titres sections, dates, accents (défaut orange si non défini)
+  const secondary = hex(b.secondaryColor ?? "#e67700")
   const f = b.fontFamily
   const children: DocChildren = []
 
   children.push(ilomadHeaderTable(cv, b, photo, logo, bs))
 
   if (cv.contact?.profileText) {
-    children.push(new Paragraph({ children: [new TextRun({ text: "PROFIL :", size: 22, bold: true, color: c, font: f })], spacing: { before: 200, after: 80 } }))
-    children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })], border: { left: { style: BorderStyle.SINGLE, size: 12, color: c, space: 8 } }, indent: { left: 120 }, spacing: { after: 200 } }))
+    children.push(new Paragraph({ children: [new TextRun({ text: "PROFIL", size: 22, bold: true, color: secondary, font: f })], border: { bottom: { style: BorderStyle.SINGLE, size: 4, color: secondary } }, spacing: { before: 200, after: 80 } }))
+    children.push(new Paragraph({ children: [new TextRun({ text: cv.contact.profileText, size: 20, font: f })], spacing: { after: 200 } }))
   }
+
+  // Fond colonne gauche : version très légère de la couleur primaire
+  const leftBg = "F2F4F8"
 
   children.push(new Table({
     width: { size: 100, type: WidthType.PERCENTAGE },
     borders: TABLE_BORDERS,
     rows: [new TableRow({
       children: [
-        new TableCell({ children: ilomadLeftColumn(cv, c, f), width: { size: 33, type: WidthType.PERCENTAGE }, shading: { type: ShadingType.CLEAR, color: "auto", fill: "EEF3F0" }, margins: { top: 160, bottom: 160, left: 240, right: 240 }, borders: TABLE_BORDERS }),
-        new TableCell({ children: ilomadRightColumn(cv, c, f), width: { size: 67, type: WidthType.PERCENTAGE }, margins: { top: 160, bottom: 160, left: 240, right: 240 }, borders: TABLE_BORDERS }),
+        new TableCell({ children: ilomadLeftColumn(cv, primary, secondary, f), width: { size: 33, type: WidthType.PERCENTAGE }, shading: { type: ShadingType.CLEAR, color: "auto", fill: leftBg }, margins: { top: 160, bottom: 160, left: 240, right: 240 }, borders: TABLE_BORDERS }),
+        new TableCell({ children: ilomadRightColumn(cv, primary, secondary, f), width: { size: 67, type: WidthType.PERCENTAGE }, margins: { top: 160, bottom: 160, left: 240, right: 240 }, borders: TABLE_BORDERS }),
       ],
     })],
   }))

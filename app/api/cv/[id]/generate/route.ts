@@ -24,7 +24,7 @@ export async function POST(
       educations: { orderBy: { order: "asc" } },
       languages: { where: { display: true }, orderBy: { order: "asc" } },
       certifications: { where: { display: true }, orderBy: { order: "asc" } },
-      company: { select: { name: true, primaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true, blockSettings: true } },
+      company: { select: { name: true, primaryColor: true, secondaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true, blockSettings: true } },
     },
   })
 
@@ -60,7 +60,7 @@ export async function POST(
       languages: cv.languages,
       certifications: cv.certifications,
     },
-    { companyName: cv.company.name, primaryColor: cv.company.primaryColor, fontFamily: cv.company.fontFamily },
+    { companyName: cv.company.name, primaryColor: cv.company.primaryColor, secondaryColor: cv.company.secondaryColor ?? "#e67700", fontFamily: cv.company.fontFamily },
     templateId,
     sectionSettings,
     logoBuffer,

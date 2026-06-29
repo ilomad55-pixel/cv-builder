@@ -14,7 +14,7 @@ export default async function SettingsPage() {
 
   const company = await prisma.company.findUnique({
     where: { id: session.user.id },
-    select: { name: true, primaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true, blockSettings: true },
+    select: { name: true, primaryColor: true, secondaryColor: true, fontFamily: true, logoUrl: true, sectionSettings: true, blockSettings: true },
   })
 
   if (!company) return null
@@ -26,7 +26,7 @@ export default async function SettingsPage() {
         <p className="text-sm text-gray-500 mt-0.5">Charte graphique et configuration des CVs générés</p>
       </div>
       <LogoUpload currentUrl={company.logoUrl} />
-      <BrandingForm initial={company} />
+      <BrandingForm initial={{ name: company.name, primaryColor: company.primaryColor, secondaryColor: company.secondaryColor ?? "#e67700", fontFamily: company.fontFamily }} />
       <BlockSettingsForm
         initial={company.blockSettings as BlockSettings | null}
         primaryColor={company.primaryColor}
